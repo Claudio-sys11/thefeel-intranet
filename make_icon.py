@@ -2,6 +2,7 @@
 """더필코리아 로고(TF 모노그램) 자산 생성: logo.svg / logo.png / app.ico
 업로드된 로고를 동일한 격자(블록) 디자인으로 재현한다."""
 import os
+import io
 from PIL import Image, ImageDraw
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -90,19 +91,21 @@ def make_svg():
 
 
 def from_source(src):
-    """사용자가 제공한 원본 로고 이미지를 그대로 사용 (정확히 일치)."""
+    """사용자가 제공한 원본 로고 이미지를 그대로 사용 (수정 없이 정확히 일치)."""
     import base64
     img = Image.open(src).convert("RGBA")
-    img.save(os.path.join(STATIC, "logo.png"))
-    img.resize((256, 256)).save(
+    img.resize((512, 512), Image.LANCZOS).save(os.path.join(STATIC, "logo.png"))
+    img.resize((256, 256), Image.LANCZOS).save(
         os.path.join(BASE, "app.ico"),
         sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-    b64 = base64.b64encode(open(os.path.join(STATIC, "logo.png"), "rb").read()).decode()
+    buf = io.BytesIO()
+    img.resize((256, 256), Image.LANCZOS).save(buf, "PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
            f'<image width="100" height="100" href="data:image/png;base64,{b64}"/></svg>')
     with open(os.path.join(STATIC, "logo.svg"), "w", encoding="utf-8") as f:
         f.write(svg)
-    print("원본 로고 적용: static/logo_source.png → logo.png / logo.svg / app.ico")
+    print("원본 로고 그대로 적용: static/logo_source.png → logo.png / logo.svg / app.ico")
 
 
 if __name__ == "__main__":

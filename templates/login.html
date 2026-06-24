@@ -7,19 +7,46 @@
     <img src="{{ url_for('static', filename='logo.svg') }}" alt="The Feel" class="login-logo">
     <h1 class="wordmark">THE&nbsp;FEEL</h1>
     <p class="sub">Intranet · 사내 업무 포털</p>
-    <form method="post">
+    <form method="post" id="loginform">
       <label>아이디</label>
-      <input type="text" name="username" autofocus required>
+      <input type="text" name="username" id="f-user" autofocus required>
       <label>비밀번호</label>
-      <input type="password" name="password" required>
+      <input type="password" name="password" id="f-pw" required>
+      <div class="remember-row">
+        <label class="rmb"><input type="checkbox" id="rmb-id"> 아이디 기억</label>
+        <label class="rmb"><input type="checkbox" id="rmb-pw"> 비밀번호 기억</label>
+      </div>
       <button type="submit" class="btn primary full">로그인</button>
     </form>
     <p class="signup-cta">아직 계정이 없으신가요? <a href="{{ url_for('signup') }}">회원가입</a></p>
     <div class="ver-check" id="ver-check">최신 버전 확인 중…</div>
   </div>
+  <div class="popup-footer">
+    <div class="company">THE FEEL KOREA CO.,LTD.</div>
+    <div class="credit">Created by Claudio Lim</div>
+  </div>
 </div>
 <script>
 function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.close_app){pywebview.api.close_app();return;} }catch(e){} window.close(); }
+
+// 아이디/비밀번호 기억
+(function(){
+  var u=document.getElementById('f-user'), p=document.getElementById('f-pw'),
+      rid=document.getElementById('rmb-id'), rpw=document.getElementById('rmb-pw');
+  try{
+    var sid=localStorage.getItem('tfi_id'); if(sid){ u.value=sid; rid.checked=true; }
+    var spw=localStorage.getItem('tfi_pw'); if(spw){ p.value=spw; rpw.checked=true; }
+  }catch(e){}
+  if(u.value && !p.value){ p.focus(); }
+  document.getElementById('loginform').addEventListener('submit', function(){
+    try{
+      if(rid.checked) localStorage.setItem('tfi_id', u.value); else localStorage.removeItem('tfi_id');
+      if(rpw.checked) localStorage.setItem('tfi_pw', p.value); else localStorage.removeItem('tfi_pw');
+    }catch(e){}
+  });
+})();
+
+// 최신 버전 체크
 (function(){
   var el=document.getElementById('ver-check');
   function check(){

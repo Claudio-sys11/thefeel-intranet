@@ -62,9 +62,15 @@ main.plain{max-width:none;padding:0}
 .login-card button{margin-top:22px}
 .hint{text-align:center;color:var(--muted);font-size:12px;margin-top:18px}
 /* frameless popup */
-.popup-close{position:fixed;top:12px;right:14px;z-index:5;width:30px;height:30px;border-radius:50%;
-  border:0;background:rgba(255,255,255,.18);color:#fff;font-size:14px;cursor:pointer;line-height:1}
-.popup-close:hover{background:rgba(255,255,255,.34)}
+.popup-close{position:fixed;top:10px;right:14px;z-index:5;width:28px;height:28px;
+  border:0;background:none;color:#fff;font-size:16px;cursor:pointer;line-height:1;opacity:.7}
+.popup-close:hover{opacity:1}
+.remember-row{display:flex;gap:18px;margin-top:12px}
+.rmb{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+.rmb input{width:auto}
+.popup-footer{position:fixed;left:0;right:0;bottom:14px;text-align:center;line-height:1.5}
+.popup-footer .company{color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px}
+.popup-footer .credit{color:#9b93b5;font-size:11px}
 .ver-check{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
 .ver-check.ok b{color:var(--primary)}
 .ver-check.has{color:#b45309;font-weight:600}
