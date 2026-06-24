@@ -11,7 +11,12 @@ a:hover{text-decoration:underline}
 /* topbar */
 .topbar{display:flex;align-items:center;gap:24px;background:#fff;border-bottom:1px solid var(--line);
   padding:0 24px;height:56px;position:sticky;top:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.brand a{font-weight:700;font-size:17px;color:var(--text)}
+.brand a{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;color:var(--text)}
+.brand a:hover{text-decoration:none}
+.brand-logo{width:30px;height:30px}
+.brand small{font-weight:500;color:var(--muted);font-size:13px}
+.login-logo{width:60px;height:60px;display:block;margin:0 auto 12px}
+.notice-card{margin:18px 0}
 .topnav{display:flex;gap:4px;flex:1}
 .topnav a{padding:8px 14px;border-radius:8px;color:var(--text);font-weight:500}
 .topnav a:hover{background:var(--bg);text-decoration:none}

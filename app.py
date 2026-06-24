@@ -211,9 +211,81 @@ def dashboard():
         JOIN users u ON u.id = m.sender_id
         WHERE mr.recipient_id=? AND mr.deleted_by_recipient=0
         ORDER BY m.created_at DESC LIMIT 5""", (uid,)).fetchall()
+    notices = db.execute("""
+        SELECT n.*, u.name AS author_name FROM notices n JOIN users u ON u.id=n.author_id
+        ORDER BY n.is_pinned DESC, n.created_at DESC LIMIT 5""").fetchall()
     leave = leave_summary(uid)
     return render_template("dashboard.html", pending_docs=pending_docs,
-                           my_docs=my_docs, recent_mail=recent_mail, leave=leave)
+                           my_docs=my_docs, recent_mail=recent_mail, leave=leave, notices=notices)
+
+
+# ---------------------------------------------------------------- notice
+@app.route("/notice")
+@login_required
+def notice_list():
+    rows = get_db().execute("""
+        SELECT n.*, u.name AS author_name FROM notices n JOIN users u ON u.id=n.author_id
+        ORDER BY n.is_pinned DESC, n.created_at DESC""").fetchall()
+    return render_template("notice/list.html", rows=rows)
+
+
+@app.route("/notice/<int:nid>")
+@login_required
+def notice_view(nid):
+    n = get_db().execute("""SELECT n.*, u.name AS author_name, u.dept AS author_dept
+                            FROM notices n JOIN users u ON u.id=n.author_id WHERE n.id=?""", (nid,)).fetchone()
+    if not n:
+        abort(404)
+    return render_template("notice/view.html", n=n)
+
+
+@app.route("/notice/new", methods=["GET", "POST"])
+@admin_required
+def notice_new():
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        if not title:
+            flash("제목을 입력하세요.", "error")
+            return render_template("notice/form.html", n=request.form, mode="new")
+        db = get_db()
+        db.execute("INSERT INTO notices (author_id, title, content, is_pinned) VALUES (?,?,?,?)",
+                   (current_user()["id"], title, request.form.get("content", "").strip(),
+                    1 if request.form.get("is_pinned") else 0))
+        db.commit()
+        flash("공지사항을 등록했습니다.", "ok")
+        return redirect(url_for("notice_list"))
+    return render_template("notice/form.html", n={}, mode="new")
+
+
+@app.route("/notice/<int:nid>/edit", methods=["GET", "POST"])
+@admin_required
+def notice_edit(nid):
+    db = get_db()
+    n = db.execute("SELECT * FROM notices WHERE id=?", (nid,)).fetchone()
+    if not n:
+        abort(404)
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        if not title:
+            flash("제목을 입력하세요.", "error")
+            return render_template("notice/form.html", n=n, mode="edit")
+        db.execute("UPDATE notices SET title=?, content=?, is_pinned=? WHERE id=?",
+                   (title, request.form.get("content", "").strip(),
+                    1 if request.form.get("is_pinned") else 0, nid))
+        db.commit()
+        flash("공지사항을 수정했습니다.", "ok")
+        return redirect(url_for("notice_view", nid=nid))
+    return render_template("notice/form.html", n=n, mode="edit")
+
+
+@app.route("/notice/<int:nid>/delete", methods=["POST"])
+@admin_required
+def notice_delete(nid):
+    db = get_db()
+    db.execute("DELETE FROM notices WHERE id=?", (nid,))
+    db.commit()
+    flash("공지사항을 삭제했습니다.", "ok")
+    return redirect(url_for("notice_list"))
 
 
 # ---------------------------------------------------------------- approval

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ '공지 등록' if mode=='new' else '공지 수정' }} · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">{{ '공지사항 등록' if mode=='new' else '공지사항 수정' }}</h2>
+<form method="post" class="form">
+  <div class="row"><label>제목</label>
+    <input type="text" name="title" value="{{ n['title'] if n['title'] is defined else '' }}" required></div>
+  <div class="row"><label>내용</label>
+    <textarea name="content" rows="12">{{ n['content'] if n['content'] is defined else '' }}</textarea></div>
+  <div class="row">
+    <label class="chk"><input type="checkbox" name="is_pinned" {{ 'checked' if n['is_pinned'] is defined and n['is_pinned'] }}> 상단 고정</label>
+  </div>
+  <div class="actions">
+    <button class="btn primary">저장</button>
+    <a href="{{ url_for('notice_list') }}" class="btn">취소</a>
+  </div>
+</form>
+{% endblock %}

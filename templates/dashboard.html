@@ -4,6 +4,21 @@
 <h2 class="page-title">안녕하세요, {{ current_user['name'] }}님 👋</h2>
 <p class="muted">{{ current_user['dept'] or '' }} {{ current_user['position'] or '' }}</p>
 
+<section class="card notice-card">
+  <div class="card-head"><h3>📢 공지사항</h3><a href="{{ url_for('notice_list') }}">전체보기</a></div>
+  {% if notices %}
+  <table class="mini">
+    {% for n in notices %}
+    <tr>
+      <td style="width:46px">{% if n['is_pinned'] %}<span class="tag" style="background:#fee2e2;color:#b91c1c">고정</span>{% endif %}</td>
+      <td><a href="{{ url_for('notice_view', nid=n['id']) }}">{{ n['title'] }}</a></td>
+      <td class="r muted">{{ n['created_at'][:10] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="empty">등록된 공지사항이 없습니다.</p>{% endif %}
+</section>
+
 <div class="grid">
   <section class="card">
     <div class="card-head"><h3>📥 결재 대기</h3><a href="{{ url_for('approval_list') }}">전체보기</a></div>

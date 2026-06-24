@@ -4,14 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}더필 인트라넷{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 {% if current_user %}
 <header class="topbar">
-  <div class="brand"><a href="{{ url_for('dashboard') }}">🏢 더필 인트라넷</a></div>
+  <div class="brand">
+    <a href="{{ url_for('dashboard') }}">
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="brand-logo">
+      <span>더필코리아 <small>인트라넷</small></span>
+    </a>
+  </div>
   <nav class="topnav">
     <a href="{{ url_for('dashboard') }}">홈</a>
+    <a href="{{ url_for('notice_list') }}">공지사항</a>
     <a href="{{ url_for('approval_list') }}">전자결재{% if nav_pending %} <span class="badge">{{ nav_pending }}</span>{% endif %}</a>
     <a href="{{ url_for('mail_inbox') }}">메일{% if nav_unread %} <span class="badge">{{ nav_unread }}</span>{% endif %}</a>
     <a href="{{ url_for('leave_my') }}">연차</a>

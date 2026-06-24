@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ n['title'] }} · 공지사항{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">{% if n['is_pinned'] %}📌 {% endif %}{{ n['title'] }}</h2>
+</div>
+<div class="doc-meta">
+  <span><b>작성자</b> {{ n['author_name'] }} ({{ n['author_dept'] or '-' }})</span>
+  <span><b>등록일</b> {{ n['created_at'][:16] }}</span>
+</div>
+<div class="content-box">{{ n['content'] or '' }}</div>
+
+<div class="actions">
+  {% if current_user['role']=='admin' %}
+  <a href="{{ url_for('notice_edit', nid=n['id']) }}" class="btn">수정</a>
+  <form method="post" action="{{ url_for('notice_delete', nid=n['id']) }}" style="display:inline"
+        onsubmit="return confirm('이 공지를 삭제할까요?')"><button class="btn danger">삭제</button></form>
+  {% endif %}
+  <a href="{{ url_for('notice_list') }}" class="back">← 목록으로</a>
+</div>
+{% endblock %}

@@ -79,5 +79,16 @@ CREATE TABLE IF NOT EXISTS message_recipients (
     FOREIGN KEY (recipient_id) REFERENCES users(id)
 );
 
+-- 공지사항
+CREATE TABLE IF NOT EXISTS notices (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id  INTEGER NOT NULL,
+    title      TEXT    NOT NULL,
+    content    TEXT,
+    is_pinned  INTEGER NOT NULL DEFAULT 0,            -- 상단 고정
+    created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (author_id) REFERENCES users(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_approver ON approval_lines(approver_id, status);
 CREATE INDEX IF NOT EXISTS idx_recip ON message_recipients(recipient_id, is_read);

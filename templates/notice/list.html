@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}공지사항 · 더필 인트라넷{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">📢 공지사항</h2>
+  {% if current_user['role']=='admin' %}<a href="{{ url_for('notice_new') }}" class="btn primary">＋ 공지 등록</a>{% endif %}
+</div>
+
+{% if rows %}
+<table class="list">
+  <thead><tr><th style="width:60px"></th><th>제목</th><th style="width:120px">작성자</th><th style="width:120px">등록일</th></tr></thead>
+  <tbody>
+  {% for n in rows %}
+    <tr>
+      <td>{% if n['is_pinned'] %}<span class="tag" style="background:#fee2e2;color:#b91c1c">고정</span>{% endif %}</td>
+      <td><a href="{{ url_for('notice_view', nid=n['id']) }}">{{ n['title'] }}</a></td>
+      <td class="muted">{{ n['author_name'] }}</td>
+      <td class="muted">{{ n['created_at'][:10] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty big">등록된 공지사항이 없습니다.</p>
+{% endif %}
+{% endblock %}
