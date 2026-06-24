@@ -43,9 +43,10 @@
 
 {% if current_user %}
 <footer class="statusbar" id="statusbar">
-  <div class="sb-left">
-    <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="sb-logo">
-    <span>The Feel Intranet <b>v{{ APP_VERSION }}</b></span>
+  <div class="sb-left"></div>
+  <div class="sb-center">
+    <div class="sb-company">THE FEEL KOREA CO.,LTD.</div>
+    <div class="sb-credit">Created by Claudio Lim</div>
   </div>
   <div class="sb-right" id="sb-right">
     <span class="sb-msg" id="sb-msg">최신 버전 확인 중…</span>

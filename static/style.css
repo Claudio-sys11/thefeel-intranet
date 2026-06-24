@@ -210,15 +210,16 @@ table.list tr.inactive{opacity:.5}
 .new{color:var(--primary)}
 
 /* bottom status bar (main 영역은 이미 하단 60px 패딩이 있어 가려지지 않음) */
-.statusbar{position:fixed;left:0;right:0;bottom:0;height:34px;z-index:30;
-  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 18px;
+.statusbar{position:fixed;left:0;right:0;bottom:0;height:42px;z-index:30;
+  display:flex;align-items:center;gap:14px;padding:0 18px;
   background:linear-gradient(90deg,var(--brand),var(--primary-d));color:#e9e3f7;font-size:12px;
   box-shadow:0 -2px 10px rgba(42,10,94,.25)}
 .statusbar.has-update{background:linear-gradient(90deg,#7c1d6b,#c026d3)}
-.sb-left{display:flex;align-items:center;gap:8px}
-.sb-logo{width:18px;height:18px;border-radius:4px}
-.sb-left b{color:#fff;font-weight:700}
-.sb-right{display:flex;align-items:center;gap:10px}
+.sb-left{flex:1}
+.sb-center{flex:0 0 auto;text-align:center;line-height:1.25}
+.sb-company{font-size:11px;font-weight:800;color:#fff;letter-spacing:.6px}
+.sb-credit{font-size:10px;color:#cfc6e6}
+.sb-right{flex:1;display:flex;align-items:center;justify-content:flex-end;gap:10px}
 .sb-msg b{color:#fff}
 .sb-btn{border:0;border-radius:999px;padding:4px 14px;font-size:12px;font-weight:800;cursor:pointer;
   background:#fff;color:#7c1d6b}
