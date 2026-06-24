@@ -110,11 +110,17 @@ def _do_apply(download_url):
         PROGRESS = {"state": "installing", "percent": 100, "message": "설치 중 · 곧 재시작됩니다"}
         time.sleep(1.0)  # 상태바가 100%/설치중을 표시할 시간
         # 실행 중인 exe(onefile 부트로더 포함)가 완전히 종료된 뒤 설치해야 교체가 됨.
-        # → 별도 cmd 로 3초 대기 후 사일런트 설치(동일 AppId: 이전 버전 제거 후 같은 위치 설치 + [Run] 재실행).
-        cmd = f'ping 127.0.0.1 -n 4 >nul & "{setup}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
-        # DETACHED_PROCESS(0x8) | CREATE_NEW_PROCESS_GROUP(0x200) → 부모(앱) 종료 후에도 독립 실행
-        subprocess.Popen(["cmd", "/c", cmd], creationflags=0x00000208, close_fds=True)
-        time.sleep(0.8)
+        # Windows 작업 스케줄러로 설치를 위임 → 앱 프로세스 트리와 완전히 분리되어
+        # 앱이 종료돼도 설치가 끝까지 진행됨(동일 AppId: 이전 버전 제거 후 [Run] 재실행).
+        CNW = 0x08000000  # CREATE_NO_WINDOW
+        task = "TheFeelIntranetUpdate"
+        action = (f'cmd /c ping 127.0.0.1 -n 4 >nul & '
+                  f'"{setup}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART & '
+                  f'schtasks /delete /tn {task} /f')
+        subprocess.run(["schtasks", "/create", "/tn", task, "/sc", "once", "/st", "00:00",
+                        "/tr", action, "/f"], creationflags=CNW)
+        subprocess.run(["schtasks", "/run", "/tn", task], creationflags=CNW)
+        time.sleep(1.0)
         os._exit(0)
     except Exception as e:
         PROGRESS = {"state": "error", "percent": 0, "message": f"업데이트 실패: {e}"}
