@@ -31,14 +31,29 @@
   </div>
   <div class="row two">
     <div>
-      <label>권한</label>
+      <label>권한(역할)</label>
+      {% if current_user['role']=='admin' %}
       <select name="role">
         <option value="employee" {{ 'selected' if u['role']=='employee' }}>직원</option>
+        <option value="manager" {{ 'selected' if u['role']=='manager' }}>중간관리자</option>
         <option value="admin" {{ 'selected' if u['role']=='admin' }}>관리자</option>
       </select>
+      {% else %}
+      <input type="text" value="{{ {'admin':'관리자','manager':'중간관리자','employee':'직원'}.get(u['role'],'직원') }}" disabled>
+      {% endif %}
     </div>
     <div><label>연간 연차(일)</label><input type="number" step="0.5" name="annual_leave" value="{{ u['annual_leave'] if u['annual_leave'] is defined else 15 }}"></div>
   </div>
+
+  {% if current_user['role']=='admin' %}
+  <div class="row">
+    <label>관리 권한 부여 <small>(중간관리자 등에게 메뉴 접근 권한 부여)</small></label>
+    <div class="status-radio">
+      <label class="chk"><input type="checkbox" name="perm_users" {{ 'checked' if u['perm_users'] is defined and u['perm_users'] }}> 직원관리 권한</label>
+      <label class="chk"><input type="checkbox" name="perm_leave" {{ 'checked' if u['perm_leave'] is defined and u['perm_leave'] }}> 연차관리 권한</label>
+    </div>
+  </div>
+  {% endif %}
 
   {% if mode=='new' %}
   <div class="row"><label>초기 비밀번호 <small>(미입력 시 1234)</small></label><input type="text" name="password" placeholder="1234"></div>

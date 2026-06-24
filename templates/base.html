@@ -22,7 +22,8 @@
     <a href="{{ url_for('approval_list') }}">전자결재{% if nav_pending %} <span class="badge">{{ nav_pending }}</span>{% endif %}</a>
     <a href="{{ url_for('mail_inbox') }}">메일{% if nav_unread %} <span class="badge">{{ nav_unread }}</span>{% endif %}</a>
     <a href="{{ url_for('leave_my') }}">연차</a>
-    {% if current_user['role'] == 'admin' %}<a href="{{ url_for('admin_users') }}">직원관리</a>{% endif %}
+    {% if can_leave %}<a href="{{ url_for('leave_admin') }}">연차관리</a>{% endif %}
+    {% if can_users %}<a href="{{ url_for('admin_users') }}">직원관리</a>{% endif %}
   </nav>
   <div class="userbox">
     <span>{{ current_user['name'] }} {{ current_user['position'] or '' }}</span>

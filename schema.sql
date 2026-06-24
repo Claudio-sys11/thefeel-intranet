@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     dept2         TEXT,                             -- 부서(2)
     position      TEXT,                             -- 직급
     job_title     TEXT,                             -- 직책
-    role          TEXT    NOT NULL DEFAULT 'employee', -- admin | employee
+    role          TEXT    NOT NULL DEFAULT 'employee', -- admin | manager | employee
+    perm_users    INTEGER NOT NULL DEFAULT 0,          -- 직원관리 권한
+    perm_leave    INTEGER NOT NULL DEFAULT 0,          -- 연차관리 권한
     status        TEXT    NOT NULL DEFAULT 'active',   -- pending | active | rejected
     locked        INTEGER NOT NULL DEFAULT 0,          -- 계정 잠금(1=잠금, 로그인 불가)
     hire_date     TEXT,                             -- 입사일 (YYYY-MM-DD)

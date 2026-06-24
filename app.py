@@ -151,6 +151,10 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN ext TEXT")
     if "job_title" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN job_title TEXT")
+    if "perm_users" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN perm_users INTEGER NOT NULL DEFAULT 0")
+    if "perm_leave" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN perm_leave INTEGER NOT NULL DEFAULT 0")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -188,6 +192,16 @@ def current_user():
     return get_db().execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
 
 
+def can_manage_users(u):
+    """직원관리 권한: 관리자 또는 직원관리 권한 부여자"""
+    return bool(u and (u["role"] == "admin" or u["perm_users"]))
+
+
+def can_manage_leave(u):
+    """연차관리 권한: 관리자 또는 연차관리 권한 부여자"""
+    return bool(u and (u["role"] == "admin" or u["perm_leave"]))
+
+
 @app.context_processor
 def inject_globals():
     user = current_user()
@@ -201,7 +215,8 @@ def inject_globals():
             (user["id"],)).fetchone()[0]
     return dict(current_user=user, nav_unread=unread, nav_pending=pending,
                 DOC_TYPES=DOC_TYPES, LEAVE_TYPES=LEAVE_TYPES,
-                APP_VERSION=version.__version__, update_info=updater.UPDATE_INFO)
+                APP_VERSION=version.__version__, update_info=updater.UPDATE_INFO,
+                can_users=can_manage_users(user), can_leave=can_manage_leave(user))
 
 
 def login_required(f):
@@ -218,6 +233,26 @@ def admin_required(f):
     def wrapper(*a, **k):
         u = current_user()
         if not u or u["role"] != "admin":
+            abort(403)
+        return f(*a, **k)
+    return wrapper
+
+
+def users_required(f):
+    """직원관리 권한 필요 (관리자 또는 직원관리 권한 부여자)"""
+    @wraps(f)
+    def wrapper(*a, **k):
+        if not can_manage_users(current_user()):
+            abort(403)
+        return f(*a, **k)
+    return wrapper
+
+
+def leave_admin_required(f):
+    """연차관리 권한 필요 (관리자 또는 연차관리 권한 부여자)"""
+    @wraps(f)
+    def wrapper(*a, **k):
+        if not can_manage_leave(current_user()):
             abort(403)
         return f(*a, **k)
     return wrapper
@@ -705,9 +740,45 @@ def leave_calendar():
     return render_template("leave/calendar.html", rows=rows)
 
 
+# ---------------------------------------------------------------- 연차관리(권한)
+@app.route("/leave/admin")
+@leave_admin_required
+def leave_admin():
+    db = get_db()
+    members = db.execute("""
+        SELECT * FROM users WHERE status='active' AND is_active=1
+        ORDER BY dept, name""").fetchall()
+    rows = []
+    for m in members:
+        s = leave_summary(m["id"])
+        rows.append({"u": m, "leave": s})
+    return render_template("leave/admin.html", rows=rows)
+
+
+@app.route("/leave/admin/set", methods=["POST"])
+@leave_admin_required
+def leave_admin_set():
+    db = get_db()
+    uid = request.form.get("uid")
+    try:
+        val = float(request.form.get("annual_leave"))
+        if val < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        flash("연차 일수는 0 이상의 숫자여야 합니다.", "error")
+        return redirect(url_for("leave_admin"))
+    u = db.execute("SELECT username, name FROM users WHERE id=?", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    db.execute("UPDATE users SET annual_leave=? WHERE id=?", (val, uid))
+    db.commit()
+    flash(f"{u['name']}({u['username']}) 연차를 {val}일로 설정했습니다.", "ok")
+    return redirect(url_for("leave_admin"))
+
+
 # ---------------------------------------------------------------- admin
 @app.route("/admin/users")
-@admin_required
+@users_required
 def admin_users():
     db = get_db()
     # 가입 대기(pending)를 맨 위로, 그 다음 부서/이름 순
@@ -719,7 +790,7 @@ def admin_users():
 
 
 @app.route("/admin/users/bulk", methods=["POST"])
-@admin_required
+@users_required
 def admin_users_bulk():
     action = request.form.get("action")
     ids = [int(i) for i in request.form.getlist("ids") if i.isdigit()]
@@ -761,7 +832,7 @@ def admin_users_bulk():
 
 
 @app.route("/admin/pending/<int:uid>", methods=["GET", "POST"])
-@admin_required
+@users_required
 def admin_pending(uid):
     db = get_db()
     u = db.execute("SELECT * FROM users WHERE id=? AND status='pending'", (uid,)).fetchone()
@@ -800,7 +871,7 @@ def admin_pending(uid):
 
 
 @app.route("/admin/users/new", methods=["GET", "POST"])
-@admin_required
+@users_required
 def admin_user_new():
     if request.method == "POST":
         db = get_db()
@@ -812,16 +883,25 @@ def admin_user_new():
             flash("이미 존재하는 아이디입니다.", "error")
             return render_template("admin/user_form.html", u=request.form, mode="new")
         pw = request.form.get("password") or "1234"
+        # 역할/권한은 관리자만 부여 (권한 상승 방지)
+        editor_admin = current_user()["role"] == "admin"
+        role = request.form.get("role", "employee")
+        if not editor_admin or role not in ("employee", "manager", "admin"):
+            role = role if role in ("employee", "manager") else "employee"
+        if not editor_admin and role == "admin":
+            role = "employee"
+        perm_users = 1 if (editor_admin and request.form.get("perm_users")) else 0
+        perm_leave = 1 if (editor_admin and request.form.get("perm_leave")) else 0
         try:
-            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, job_title, role, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, job_title, role, perm_users, perm_leave, hire_date, annual_leave)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                        (username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(), format_phone(request.form.get("phone", "").strip()),
                         hashpw(pw), request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
-                        request.form.get("role", "employee"),
+                        role, perm_users, perm_leave,
                         request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15)))
             db.commit()
@@ -834,7 +914,7 @@ def admin_user_new():
 
 
 @app.route("/admin/users/<int:uid>/edit", methods=["GET", "POST"])
-@admin_required
+@users_required
 def admin_user_edit(uid):
     db = get_db()
     u = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
@@ -848,15 +928,24 @@ def admin_user_edit(uid):
         if db.execute("SELECT 1 FROM users WHERE username=? AND id!=?", (new_username, uid)).fetchone():
             flash("이미 사용 중인 아이디입니다.", "error")
             return render_template("admin/user_form.html", u=u, mode="edit")
+        # 역할/권한은 관리자만 변경 가능 (비관리자는 기존 값 유지 → 권한 상승 방지)
+        if current_user()["role"] == "admin":
+            role = request.form.get("role", "employee")
+            if role not in ("employee", "manager", "admin"):
+                role = "employee"
+            perm_users = 1 if request.form.get("perm_users") else 0
+            perm_leave = 1 if request.form.get("perm_leave") else 0
+        else:
+            role, perm_users, perm_leave = u["role"], u["perm_users"], u["perm_leave"]
         try:
-            db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, job_title=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
+            db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, job_title=?, role=?, perm_users=?, perm_leave=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
                        (new_username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(),
                         request.form.get("name").strip(), request.form.get("email", "").strip(),
                         format_phone(request.form.get("phone", "").strip()),
                         request.form.get("dept", "").strip(), request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
-                        request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
+                        role, perm_users, perm_leave, request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15),
                         1 if request.form.get("emp_status", "active") == "active" else 0, uid))
             if request.form.get("reset_pw"):
@@ -872,7 +961,7 @@ def admin_user_edit(uid):
 
 
 @app.route("/admin/users/<int:uid>/lock", methods=["POST"])
-@admin_required
+@users_required
 def admin_user_lock(uid):
     db = get_db()
     u = db.execute("SELECT username, locked, role FROM users WHERE id=?", (uid,)).fetchone()
@@ -889,7 +978,7 @@ def admin_user_lock(uid):
 
 
 @app.route("/admin/users/<int:uid>/reset_pw", methods=["POST"])
-@admin_required
+@users_required
 def admin_user_reset_pw(uid):
     db = get_db()
     u = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
