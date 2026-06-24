@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}서버 연결 설정 · The Feel Intranet{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    {% if restarting %}
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="login-logo">
+      <h1 class="wordmark" style="font-size:24px">재시작 중…</h1>
+      <p class="sub">연결 설정을 적용해 프로그램을 다시 시작합니다.<br>잠시 후 자동으로 열립니다.</p>
+    {% else %}
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="login-logo sm">
+      <h1 class="wordmark" style="font-size:22px">서버 연결 설정</h1>
+      <p class="sub">현재 모드:
+        {% if not cur or cur=='self' %}이 PC가 서버{% else %}{{ cur }} 에 접속{% endif %}
+      </p>
+      <form method="post">
+        <button type="submit" name="mode" value="self" class="btn primary full">이 PC를 서버로 사용 (관리자 PC)</button>
+        <div class="ver-check ok" style="margin-top:8px">이 PC 주소: <b>{{ lan_ip }}:5000</b> · 직원에게 알려주세요</div>
+        <div class="divider2">또는</div>
+        <label>서버(관리자 PC) 주소</label>
+        <input type="text" name="server" placeholder="예: 192.168.0.74">
+        <button type="submit" name="mode" value="client" class="btn full" style="margin-top:10px;background:#475569;color:#fff;border:0">이 주소의 서버에 접속 (직원 PC)</button>
+      </form>
+      <p class="signup-cta"><a href="{{ url_for('login') }}">← 로그인으로 돌아가기</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

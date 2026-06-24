@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 """The Feel Intranet - 데스크톱 앱 진입점.
 
-두 가지 실행 모드:
-  - 서버 모드: 이 PC에서 Flask 서버 + DB 를 운영(관리자/서버 PC).
-  - 클라이언트 모드: 서버 PC(관리자 PC)의 주소에 접속만 함(로컬 서버/DB 없음).
-직원 PC를 클라이언트 모드로 설정하면 회원가입이 서버(관리자) DB로 중앙 접수된다.
+서버 모드 / 클라이언트 모드:
+  - 서버 모드: 이 PC에서 Flask + DB 운영. (데이터 보유 PC는 항상 서버 모드 → 데이터 보존)
+  - 클라이언트 모드: 서버 PC 주소에 접속만 함(로컬 서버/DB 없음).
+모드는 %LOCALAPPDATA%\\ThefeelIntranet\\server.cfg ("self" 또는 서버 URL)에 저장.
 
-모드는 %LOCALAPPDATA%\\ThefeelIntranet\\server.cfg 에 저장된다.
-  - 파일 내용이 "self"  → 서버 모드
-  - 파일 내용이 URL     → 클라이언트 모드(해당 주소 접속)
-기존 서버 PC(intranet.db 존재)는 자동으로 서버 모드로 동작(설정창 안 뜸).
+모드 전환: 로그인 화면 → "서버 연결 설정"(/connect), 또는 최초 실행 시 설정창.
 """
 import os
 import sys
@@ -26,47 +23,15 @@ import version
 
 HOST, PORT = "0.0.0.0", 5000
 TITLE = f"The Feel Intranet  v{version.__version__}"
-SERVER_CFG = os.path.join(appmod.DATA_DIR, "server.cfg")
 
 LOGIN_SIZE = (440, 690)
 SIGNUP_SIZE = (450, 830)
 MAIN_SIZE = (1280, 860)
 
-BASE = f"http://127.0.0.1:{PORT}"     # 실행 모드에 따라 결정
+BASE = f"http://127.0.0.1:{PORT}"
 _login_win = None
 _main_win = None
 _switched = False
-
-
-# ---------------------------------------------------------------- 설정/모드
-def read_cfg():
-    try:
-        v = open(SERVER_CFG, encoding="utf-8").read().strip()
-        return v or None
-    except OSError:
-        return None
-
-
-def write_cfg(val):
-    try:
-        with open(SERVER_CFG, "w", encoding="utf-8") as f:
-            f.write(val)
-    except OSError:
-        pass
-
-
-def normalize_url(s):
-    s = (s or "").strip()
-    if not s:
-        return None
-    if "://" not in s:
-        s = "http://" + s
-    p = urllib.parse.urlparse(s)
-    host = p.hostname
-    if not host:
-        return None
-    port = p.port or PORT
-    return f"http://{host}:{port}"
 
 
 def reachable(base):
@@ -78,32 +43,8 @@ def reachable(base):
         return False
 
 
-def lan_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
-
-
-def relaunch():
-    """설정 저장 후 자기 자신을 재실행."""
-    try:
-        if getattr(sys, "frozen", False):
-            __import__("subprocess").Popen([sys.executable], close_fds=True)
-        else:
-            __import__("subprocess").Popen([sys.executable, os.path.abspath(__file__)], close_fds=True)
-    except Exception:
-        pass
-    os._exit(0)
-
-
 # ---------------------------------------------------------------- JS 브리지
 class Api:
-    """로그인 팝업 닫기 버튼"""
     def close_app(self):
         os._exit(0)
 
@@ -111,14 +52,14 @@ class Api:
 class ConfigApi:
     """최초 실행 연결 설정 창"""
     def use_self(self):
-        write_cfg("self")
-        relaunch()
+        appmod.write_server_cfg("self")
+        appmod.relaunch_app()
 
     def connect(self, addr):
-        url = normalize_url(addr)
+        url = appmod.normalize_server_url(addr)
         if url:
-            write_cfg(url)
-            relaunch()
+            appmod.write_server_cfg(url)
+            appmod.relaunch_app()
 
 
 # ---------------------------------------------------------------- 서버
@@ -164,7 +105,7 @@ def _on_login_loaded():
     if path == "/signup":
         try: _login_win.resize(*SIGNUP_SIZE)
         except Exception: pass
-    elif path == "/login":
+    elif path in ("/login", "/connect"):
         try: _login_win.resize(*LOGIN_SIZE)
         except Exception: pass
     else:
@@ -193,7 +134,7 @@ body{margin:0;background:linear-gradient(135deg,#2a0a5e,#5b21b6);color:#fff;heig
 .card{background:#fff;color:#1e1b2e;border-radius:16px;padding:30px;width:380px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 h1{font-size:19px;margin:0 0 4px;text-align:center}
 .sub{text-align:center;color:#6b6480;font-size:13px;margin:0 0 20px}
-.err{background:#fee2e2;color:#991b1b;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px}
+.err{background:#fee2e2;color:#991b1b;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px;white-space:pre-line}
 button{width:100%;padding:12px;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;color:#fff}
 .primary{background:linear-gradient(135deg,#6d28d9,#c026d3)}
 .alt{background:#475569;margin-top:6px}
@@ -227,7 +168,7 @@ def show_config(error="", value=""):
     import webview
     html = (CONFIG_HTML
             .replace("__ERR__", f'<div class="err">{error}</div>' if error else "")
-            .replace("__IP__", lan_ip())
+            .replace("__IP__", appmod.lan_ip())
             .replace("__VAL__", value))
     webview.create_window("연결 설정 · The Feel Intranet", html=html,
                           js_api=ConfigApi(), width=440, height=600, resizable=False)
@@ -237,34 +178,41 @@ def show_config(error="", value=""):
 # ---------------------------------------------------------------- main
 def main():
     global BASE
-    cfg = read_cfg()
+    cfg = appmod.read_server_cfg()
     db_exists = os.path.exists(appmod.DB_PATH)
-    # 기존 서버 PC(데이터 있음)는 설정창 없이 자동 서버 모드
-    if cfg is None and db_exists:
-        cfg = "self"
 
-    try:
-        if cfg is None:
-            # 최초 실행 → 연결 설정 창
-            show_config()
-            return
-        if cfg == "self":
-            BASE = f"http://127.0.0.1:{PORT}"
+    # 데이터가 있는 PC(또는 self 설정)는 '항상' 서버 모드 → 데이터 절대 손실/숨김 없음
+    if cfg == "self" or (cfg is None and db_exists):
+        BASE = f"http://127.0.0.1:{PORT}"
+        try:
             start_server()
             launch_windows()
-        else:
-            # 클라이언트 모드 → 서버 접속
-            BASE = cfg
-            appmod.updater.check_async()
-            if not reachable(BASE):
-                show_config(error=f"서버에 연결할 수 없습니다: {BASE}\n주소를 확인하세요.",
+        except Exception:
+            webbrowser.open(BASE); threading.Event().wait()
+        return
+
+    # 클라이언트 모드 (server.cfg 가 URL)
+    if cfg and cfg != "self":
+        BASE = cfg
+        appmod.updater.check_async()
+        try:
+            if reachable(BASE):
+                launch_windows()
+            else:
+                show_config(error=f"서버에 연결할 수 없습니다:\n{BASE}\n서버 PC가 켜져 있고 방화벽(5000)이 열려 있는지 확인하세요.",
                             value=urllib.parse.urlparse(BASE).hostname or "")
-                return
-            launch_windows()
+        except Exception:
+            webbrowser.open(BASE); threading.Event().wait()
+        return
+
+    # 최초 실행 (설정/데이터 모두 없음) → 연결 설정창
+    try:
+        show_config()
     except Exception:
-        # WebView2 미설치 등 → 브라우저 폴백
-        webbrowser.open(BASE)
-        threading.Event().wait()
+        # webview 불가 → 안전하게 서버 모드로
+        BASE = f"http://127.0.0.1:{PORT}"
+        start_server()
+        webbrowser.open(BASE); threading.Event().wait()
 
 
 if __name__ == "__main__":

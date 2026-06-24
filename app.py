@@ -9,9 +9,14 @@ Flask + SQLite, 단일 실행 파일.
 """
 import os
 import sys
+import glob
+import shutil
+import socket
 import sqlite3
 import webbrowser
 import threading
+import subprocess
+import urllib.parse
 from datetime import datetime, date
 from functools import wraps
 
@@ -66,6 +71,8 @@ else:
     DATA_DIR = BASE_DIR
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "intranet.db")
+BACKUP_DIR = os.path.join(DATA_DIR, "backups")
+SERVER_CFG = os.path.join(DATA_DIR, "server.cfg")
 
 # 파일 로깅 (frozen/windowed 환경에서 오류 추적용) - 핸들러 강제 부착
 import logging
@@ -130,7 +137,94 @@ ADMIN_USER = "THEFEELKOREA"
 ADMIN_PW = "231900"
 
 
+# ---------------------------------------------------------------- 데이터 보호(백업/복구)
+def _backup_db():
+    """사용자 데이터가 있으면 타임스탬프 백업 생성, 최신 30개만 유지."""
+    try:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        chk = sqlite3.connect(DB_PATH)
+        n = chk.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        chk.close()
+        if n <= 0:
+            return
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        dst = os.path.join(BACKUP_DIR, f"intranet-{ts}.db")
+        if not os.path.exists(dst):
+            shutil.copy2(DB_PATH, dst)
+        for old in sorted(glob.glob(os.path.join(BACKUP_DIR, "intranet-*.db")))[:-30]:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
+def _restore_if_missing():
+    """메인 DB가 없으면 최신 백업에서 복원(데이터 손실 방지)."""
+    if os.path.exists(DB_PATH):
+        return
+    try:
+        bks = sorted(glob.glob(os.path.join(BACKUP_DIR, "intranet-*.db")))
+        if bks:
+            shutil.copy2(bks[-1], DB_PATH)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- 서버/클라이언트 설정
+def read_server_cfg():
+    try:
+        v = open(SERVER_CFG, encoding="utf-8").read().strip()
+        return v or None
+    except OSError:
+        return None
+
+
+def write_server_cfg(val):
+    try:
+        with open(SERVER_CFG, "w", encoding="utf-8") as f:
+            f.write(val or "")
+    except OSError:
+        pass
+
+
+def lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def normalize_server_url(s):
+    s = (s or "").strip()
+    if not s:
+        return None
+    if "://" not in s:
+        s = "http://" + s
+    p = urllib.parse.urlparse(s)
+    if not p.hostname:
+        return None
+    return f"http://{p.hostname}:{p.port or 5000}"
+
+
+def relaunch_app():
+    """현재 앱(exe)을 재시작 (모드 변경 적용). 성공 시 반환 없음."""
+    try:
+        if getattr(sys, "frozen", False):
+            cmd = f'ping 127.0.0.1 -n 3 >nul & "{sys.executable}"'
+            subprocess.Popen(["cmd", "/c", cmd], creationflags=0x00000208, close_fds=True)
+    except Exception:
+        pass
+    os._exit(0)
+
+
 def init_db():
+    _restore_if_missing()
     db = sqlite3.connect(DB_PATH)
     with open(resource_path("schema.sql"), encoding="utf-8") as f:
         db.executescript(f.read())
@@ -182,6 +276,7 @@ def init_db():
                (hashpw(ADMIN_PW), ADMIN_USER))
     db.commit()
     db.close()
+    _backup_db()   # 데이터 백업 (손실 방지)
 
 
 # ---------------------------------------------------------------- auth
@@ -287,6 +382,24 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/connect", methods=["GET", "POST"])
+def connect_settings():
+    """서버/클라이언트 연결 모드 설정 (로그인 전에도 접근 가능)."""
+    if request.method == "POST":
+        mode = request.form.get("mode")
+        if mode == "client":
+            url = normalize_server_url(request.form.get("server", ""))
+            if not url:
+                flash("서버(관리자 PC) 주소를 올바르게 입력하세요.", "error")
+                return redirect(url_for("connect_settings"))
+            write_server_cfg(url)
+        else:
+            write_server_cfg("self")
+        threading.Timer(1.2, relaunch_app).start()   # 응답 후 재시작
+        return render_template("connect.html", restarting=True, lan_ip=lan_ip())
+    return render_template("connect.html", cur=read_server_cfg(), lan_ip=lan_ip())
 
 
 @app.route("/signup", methods=["GET", "POST"])

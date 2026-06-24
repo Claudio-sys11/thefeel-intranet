@@ -82,6 +82,10 @@ main.plain{max-width:none;padding:0}
 table.list.center th,table.list.center td{text-align:center;vertical-align:middle}
 table.list.wide th,table.list.wide td{padding:12px 9px}
 .status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
+.divider2{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:16px 0}
+.divider2::before,.divider2::after{content:"";flex:1;height:1px;background:#e6e2f0}
+.connect-link{text-align:center;margin-top:10px}
+.connect-link a{color:#9b93b5;font-size:12px}
 /* 연차관리 연차부여 입력: 둥근 직사각형 + 회색 */
 .leave-input{width:104px;text-align:center;padding:9px 12px;border:1px solid #c7cdd9;
   border-radius:12px;background:#eceef2;color:#1e1b2e;font-size:14px;font-weight:600;font-family:inherit}
