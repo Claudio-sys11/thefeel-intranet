@@ -14,12 +14,15 @@
     <div><label>전화번호</label><input type="tel" name="phone" value="{{ u['phone'] if u['phone'] is defined else '' }}"></div>
   </div>
   <div class="row two">
-    <div><label>부서</label><input type="text" name="dept" value="{{ u['dept'] if u['dept'] is defined else '' }}"></div>
-    <div><label>직급</label><input type="text" name="position" value="{{ u['position'] if u['position'] is defined else '' }}"></div>
+    <div><label>부서 1</label><input type="text" name="dept" value="{{ u['dept'] if u['dept'] is defined else '' }}" placeholder="예: 영업부"></div>
+    <div><label>부서 2 <small>(선택)</small></label><input type="text" name="dept2" value="{{ u['dept2'] if u['dept2'] is defined else '' }}" placeholder="겸직 부서"></div>
   </div>
   <div class="row two">
-    <div><label>이메일</label><input type="email" name="email" value="{{ u['email'] if u['email'] is defined else '' }}"></div>
+    <div><label>직급</label><input type="text" name="position" value="{{ u['position'] if u['position'] is defined else '' }}"></div>
     <div><label>입사일</label><input type="date" name="hire_date" value="{{ u['hire_date'] if u['hire_date'] is defined else '' }}"></div>
+  </div>
+  <div class="row">
+    <label>이메일</label><input type="email" name="email" value="{{ u['email'] if u['email'] is defined else '' }}">
   </div>
   <div class="row two">
     <div>

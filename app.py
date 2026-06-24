@@ -135,6 +135,8 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN emp_no TEXT")
     if "locked" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
+    if "dept2" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN dept2 TEXT")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
 
@@ -688,9 +690,38 @@ def leave_calendar():
 @admin_required
 def admin_users():
     db = get_db()
-    users = db.execute("SELECT * FROM users WHERE status!='pending' ORDER BY is_active DESC, dept, name").fetchall()
-    pending = db.execute("SELECT * FROM users WHERE status='pending' ORDER BY created_at").fetchall()
-    return render_template("admin/users.html", users=users, pending=pending)
+    # 가입 대기(pending)를 맨 위로, 그 다음 부서/이름 순
+    users = db.execute("""
+        SELECT * FROM users
+        ORDER BY (status='pending') DESC, is_active DESC, dept, name""").fetchall()
+    pending_cnt = db.execute("SELECT COUNT(*) FROM users WHERE status='pending'").fetchone()[0]
+    return render_template("admin/users.html", users=users, pending_cnt=pending_cnt)
+
+
+@app.route("/admin/users/bulk", methods=["POST"])
+@admin_required
+def admin_users_bulk():
+    action = request.form.get("action")
+    ids = [int(i) for i in request.form.getlist("ids") if i.isdigit()]
+    if not ids:
+        flash("선택된 직원이 없습니다. 앞쪽 체크박스를 선택하세요.", "error")
+        return redirect(url_for("admin_users"))
+    db = get_db()
+    ph = ",".join("?" * len(ids))
+    if action == "approve":
+        cur = db.execute(f"UPDATE users SET status='active', is_active=1 WHERE id IN ({ph}) AND status='pending'", ids)
+        flash(f"{cur.rowcount}명 가입 승인 처리했습니다.", "ok")
+    elif action == "lock":
+        cur = db.execute(f"UPDATE users SET locked=1 WHERE id IN ({ph}) AND role!='admin'", ids)
+        flash(f"{cur.rowcount}개 계정을 잠갔습니다.", "ok")
+    elif action == "unlock":
+        cur = db.execute(f"UPDATE users SET locked=0 WHERE id IN ({ph})", ids)
+        flash(f"{cur.rowcount}개 계정을 잠금 해제했습니다.", "ok")
+    else:
+        flash("알 수 없는 작업입니다.", "error")
+        return redirect(url_for("admin_users"))
+    db.commit()
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/admin/pending/<int:uid>", methods=["GET", "POST"])
@@ -746,11 +777,12 @@ def admin_user_new():
             return render_template("admin/user_form.html", u=request.form, mode="new")
         pw = request.form.get("password") or "1234"
         try:
-            db.execute("""INSERT INTO users (username, emp_no, password_hash, name, email, dept, position, role, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO users (username, emp_no, password_hash, name, email, dept, dept2, position, role, hire_date, annual_leave)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                        (username, request.form.get("emp_no", "").strip(), hashpw(pw),
                         request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
+                        request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("role", "employee"),
                         request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15)))
@@ -779,11 +811,12 @@ def admin_user_edit(uid):
             flash("이미 사용 중인 아이디입니다.", "error")
             return render_template("admin/user_form.html", u=u, mode="edit")
         try:
-            db.execute("""UPDATE users SET username=?, emp_no=?, name=?, email=?, phone=?, dept=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
+            db.execute("""UPDATE users SET username=?, emp_no=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
                        (new_username, request.form.get("emp_no", "").strip(),
                         request.form.get("name").strip(), request.form.get("email", "").strip(),
                         request.form.get("phone", "").strip(),
-                        request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
+                        request.form.get("dept", "").strip(), request.form.get("dept2", "").strip(),
+                        request.form.get("position", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15),
                         1 if request.form.get("is_active") else 0, uid))

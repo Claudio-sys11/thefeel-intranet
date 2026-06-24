@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     emp_no        TEXT,                             -- 사번
     phone         TEXT,                             -- 전화번호
     email         TEXT,
-    dept          TEXT,                             -- 부서
+    dept          TEXT,                             -- 부서(1)
+    dept2         TEXT,                             -- 부서(2)
     position      TEXT,                             -- 직급
     role          TEXT    NOT NULL DEFAULT 'employee', -- admin | employee
     status        TEXT    NOT NULL DEFAULT 'active',   -- pending | active | rejected
