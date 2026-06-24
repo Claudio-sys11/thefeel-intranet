@@ -11,6 +11,8 @@
               onclick="return checkedAny('잠글')">잠금</button>
       <button name="action" value="unlock" class="btn"
               onclick="return checkedAny('잠금 해제할')">잠금 해제</button>
+      <button name="action" value="delete" class="btn danger"
+              onclick="return checkedDelete()">삭제</button>
       <a href="{{ url_for('admin_user_new') }}" class="btn primary">＋ 직원 추가</a>
     </div>
   </div>
@@ -69,6 +71,11 @@ function checkedAny(label){
   var n = document.querySelectorAll('.rowchk:checked').length;
   if(n === 0){ alert('체크박스로 ' + label + ' 직원을 먼저 선택하세요.'); return false; }
   return confirm('선택한 ' + n + '명을 ' + label.replace(/할$/, '') + ' 처리할까요?');
+}
+function checkedDelete(){
+  var n = document.querySelectorAll('.rowchk:checked').length;
+  if(n === 0){ alert('삭제할 직원을 먼저 선택하세요.'); return false; }
+  return confirm('선택한 ' + n + '명을 완전히 삭제할까요?\n관련 결재·메일·연차 기록도 함께 삭제되며 되돌릴 수 없습니다.\n(관리자 계정은 삭제되지 않습니다.)');
 }
 </script>
 {% endblock %}

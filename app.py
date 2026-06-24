@@ -733,6 +733,22 @@ def admin_users_bulk():
     elif action == "unlock":
         cur = db.execute(f"UPDATE users SET locked=0 WHERE id IN ({ph})", ids)
         flash(f"{cur.rowcount}개 계정을 잠금 해제했습니다.", "ok")
+    elif action == "delete":
+        # 관리자 계정은 삭제 불가 → 삭제 대상(직원)만 추림
+        del_ids = [r[0] for r in db.execute(
+            f"SELECT id FROM users WHERE id IN ({ph}) AND role!='admin'", ids).fetchall()]
+        if not del_ids:
+            flash("삭제할 직원이 없습니다. (관리자 계정은 삭제할 수 없습니다.)", "error")
+            return redirect(url_for("admin_users"))
+        d = ",".join("?" * len(del_ids))
+        # 관련 기록 정리 후 직원 삭제 (FK 무결성 유지)
+        db.execute(f"DELETE FROM message_recipients WHERE recipient_id IN ({d})", del_ids)
+        db.execute(f"DELETE FROM messages WHERE sender_id IN ({d})", del_ids)
+        db.execute(f"DELETE FROM approval_lines WHERE approver_id IN ({d})", del_ids)
+        db.execute(f"DELETE FROM documents WHERE drafter_id IN ({d})", del_ids)
+        db.execute(f"DELETE FROM leave_requests WHERE user_id IN ({d})", del_ids)
+        db.execute(f"DELETE FROM users WHERE id IN ({d})", del_ids)
+        flash(f"{len(del_ids)}명을 삭제했습니다.", "ok")
     else:
         flash("알 수 없는 작업입니다.", "error")
         return redirect(url_for("admin_users"))
