@@ -11,6 +11,9 @@ API_LATEST = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/release
 
 # 백그라운드 확인 결과 캐시 (None = 최신 / dict = 새 버전 있음)
 UPDATE_INFO = None
+UPDATE_CHECKED = False                       # 최신버전 확인 완료 여부
+# 업데이트 진행 상태 (상태바 % 표시용)
+PROGRESS = {"state": "idle", "percent": 0, "message": ""}
 
 
 def _vt(s):
@@ -66,32 +69,52 @@ def check_async():
     import threading
 
     def _run():
-        global UPDATE_INFO
+        global UPDATE_INFO, UPDATE_CHECKED
         UPDATE_INFO = check_update()
+        UPDATE_CHECKED = True
 
     threading.Thread(target=_run, daemon=True).start()
 
 
-def apply_update(download_url):
-    """새 설치파일(Setup.exe)을 받아 사일런트로 실행 → 이전 버전 자동 제거·업그레이드
-    후 앱을 재실행한다. 성공 시 현재 프로세스를 종료한다(반환 없음)."""
+def start_apply(download_url):
+    """업데이트 적용을 백그라운드로 시작 (즉시 반환). PROGRESS 로 진행률 추적."""
+    import threading
+    threading.Thread(target=_do_apply, args=(download_url,), daemon=True).start()
+
+
+def _do_apply(download_url):
+    """설치파일을 진행률과 함께 내려받아 사일런트 설치 → 이전 버전 제거·업그레이드 후 재실행."""
+    global PROGRESS
     if not getattr(sys, "frozen", False):
-        raise RuntimeError("개발 모드에서는 자동 적용을 지원하지 않습니다.")
+        PROGRESS = {"state": "error", "percent": 0, "message": "개발 모드에서는 자동 적용을 지원하지 않습니다."}
+        return
     import tempfile
     import subprocess
+    import time
 
-    setup = os.path.join(tempfile.gettempdir(), "ThefeelIntranet-Setup.exe")
-    req = urllib.request.Request(download_url, headers={"User-Agent": "thefeel-intranet"})
-    with urllib.request.urlopen(req, timeout=180) as r, open(setup, "wb") as f:
-        f.write(r.read())
-
-    # /VERYSILENT       : 무인 설치 (창 없음)
-    # /SUPPRESSMSGBOXES : 확인창 생략
-    # /CLOSEAPPLICATIONS: 실행 중인 앱을 닫고 진행
-    # 동일 AppId 이므로 이전 버전을 제거하고 같은 위치에 덮어쓴다.
-    # 설치 후 [Run] postinstall 로 새 버전이 자동 실행된다.
-    subprocess.Popen(
-        [setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CLOSEAPPLICATIONS", "/NORESTART"],
-        close_fds=True,
-    )
-    os._exit(0)
+    setup = os.path.join(tempfile.gettempdir(), "TheFeelIntranet-Setup.exe")
+    try:
+        PROGRESS = {"state": "downloading", "percent": 0, "message": "새 버전 다운로드 중"}
+        req = urllib.request.Request(download_url, headers={"User-Agent": "thefeel-intranet"})
+        with urllib.request.urlopen(req, timeout=180) as r, open(setup, "wb") as f:
+            total = int(r.headers.get("Content-Length") or 0)
+            got = 0
+            while True:
+                chunk = r.read(65536)
+                if not chunk:
+                    break
+                f.write(chunk)
+                got += len(chunk)
+                pct = int(got * 100 / total) if total else 0
+                PROGRESS = {"state": "downloading", "percent": pct, "message": "새 버전 다운로드 중"}
+        PROGRESS = {"state": "installing", "percent": 100, "message": "설치 중 · 곧 재시작됩니다"}
+        time.sleep(1.0)  # 상태바가 100%/설치중을 표시할 시간
+        # /VERYSILENT 무인설치, /CLOSEAPPLICATIONS 실행 중 앱 종료, 동일 AppId → 이전 버전 제거 후 재실행
+        subprocess.Popen(
+            [setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CLOSEAPPLICATIONS", "/NORESTART"],
+            close_fds=True,
+        )
+        time.sleep(1.0)
+        os._exit(0)
+    except Exception as e:
+        PROGRESS = {"state": "error", "percent": 0, "message": f"업데이트 실패: {e}"}

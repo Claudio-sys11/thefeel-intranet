@@ -11,16 +11,16 @@ os.makedirs(STATIC, exist_ok=True)
 # 흰색 블록 격자 (cols=9 x rows=8). 1 = 흰색
 # 좌측 'T'(틱 + 세로기둥 + 상단보) + 우측 'F'(세로기둥 + 상단가지 + 중간가지) = TF 모노그램
 GRID = [
-    "010111111",
-    "000110011",
-    "000110011",
-    "000110011",
-    "000110111",
-    "000110011",
-    "000110011",
-    "000110011",
+    "0101111111",
+    "0001100011",
+    "0001101011",
+    "0001101011",
+    "0001100011",
+    "0001100011",
+    "0001100011",
+    "0001100011",
 ]
-COLS = 9
+COLS = 10
 ROWS = 8
 BG_TOP = (59, 19, 120)     # #3b1378
 BG_BOT = (26, 7, 64)       # #1a0740
@@ -89,12 +89,30 @@ def make_svg():
         f.write(svg)
 
 
+def from_source(src):
+    """사용자가 제공한 원본 로고 이미지를 그대로 사용 (정확히 일치)."""
+    import base64
+    img = Image.open(src).convert("RGBA")
+    img.save(os.path.join(STATIC, "logo.png"))
+    img.resize((256, 256)).save(
+        os.path.join(BASE, "app.ico"),
+        sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+    b64 = base64.b64encode(open(os.path.join(STATIC, "logo.png"), "rb").read()).decode()
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+           f'<image width="100" height="100" href="data:image/png;base64,{b64}"/></svg>')
+    with open(os.path.join(STATIC, "logo.svg"), "w", encoding="utf-8") as f:
+        f.write(svg)
+    print("원본 로고 적용: static/logo_source.png → logo.png / logo.svg / app.ico")
+
+
 if __name__ == "__main__":
-    big = draw(1024)
-    big.save(os.path.join(STATIC, "logo.png"))
-    make_svg()
-    # 멀티 사이즈 ICO
-    ico = draw(256)
-    ico.save(os.path.join(BASE, "app.ico"),
-             sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-    print("생성 완료: static/logo.svg, static/logo.png, app.ico")
+    # static/logo_source.png 가 있으면 그 파일을 그대로 로고로 사용, 없으면 격자 생성
+    src = os.path.join(STATIC, "logo_source.png")
+    if os.path.exists(src):
+        from_source(src)
+    else:
+        draw(1024).save(os.path.join(STATIC, "logo.png"))
+        make_svg()
+        draw(256).save(os.path.join(BASE, "app.ico"),
+                       sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+        print("생성 완료(격자): static/logo.svg, static/logo.png, app.ico")

@@ -17,7 +17,7 @@ from functools import wraps
 
 from flask import (
     Flask, g, session, request, redirect, url_for,
-    render_template, flash, abort
+    render_template, flash, abort, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -787,23 +787,37 @@ def update_page():
     return render_template("update.html", info=updater.UPDATE_INFO)
 
 
+@app.route("/update/status")
+@login_required
+def update_status():
+    """하단 상태바용: 최신버전 확인 상태"""
+    info = updater.UPDATE_INFO
+    return jsonify({
+        "checked": updater.UPDATE_CHECKED,
+        "current": version.__version__,
+        "latest": info["latest"] if info else version.__version__,
+        "available": bool(info),
+        "is_admin": bool(current_user() and current_user()["role"] == "admin"),
+        "frozen": getattr(sys, "frozen", False),
+    })
+
+
+@app.route("/update/progress")
+@login_required
+def update_progress():
+    return jsonify(updater.PROGRESS)
+
+
 @app.route("/update/apply", methods=["POST"])
 @admin_required
 def update_apply():
     info = updater.UPDATE_INFO
     if not info:
-        flash("적용할 업데이트가 없습니다.", "error")
-        return redirect(url_for("dashboard"))
+        return jsonify({"ok": False, "error": "적용할 업데이트가 없습니다."})
     if not getattr(sys, "frozen", False):
-        flash("개발 모드에서는 자동 적용이 불가합니다. 릴리스 페이지에서 받으세요.", "error")
-        return redirect(url_for("update_page"))
-    try:
-        # 새 exe 다운로드 후 교체·재시작 (성공 시 프로세스 종료)
-        threading.Thread(target=updater.apply_update, args=(info["download"],), daemon=True).start()
-    except Exception as e:
-        flash(f"업데이트 실패: {e}", "error")
-        return redirect(url_for("update_page"))
-    return render_template("update.html", info=info, applying=True)
+        return jsonify({"ok": False, "error": "개발 모드에서는 자동 적용이 불가합니다."})
+    updater.start_apply(info["download"])
+    return jsonify({"ok": True})
 
 
 @app.errorhandler(403)
