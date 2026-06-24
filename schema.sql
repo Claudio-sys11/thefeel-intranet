@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT    NOT NULL,
     name          TEXT    NOT NULL,
     emp_no        TEXT,                             -- 사번
+    ext           TEXT,                             -- 내선번호
     phone         TEXT,                             -- 전화번호
     email         TEXT,
     dept          TEXT,                             -- 부서(1)

@@ -36,6 +36,16 @@ def verifypw(stored, pw):
     except Exception:
         return False
 
+
+def format_phone(s):
+    """숫자만 입력해도 000-0000-0000(또는 00-000-0000) 형식으로 정규화"""
+    d = "".join(ch for ch in (s or "") if ch.isdigit())[:11]
+    if len(d) == 11:
+        return f"{d[:3]}-{d[3:7]}-{d[7:]}"
+    if len(d) == 10:
+        return f"{d[:3]}-{d[3:6]}-{d[6:]}"
+    return s or ""
+
 import version
 import updater
 
@@ -137,8 +147,13 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
     if "dept2" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN dept2 TEXT")
+    if "ext" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN ext TEXT")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
+    # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
+    for rid, ph in db.execute("SELECT id, phone FROM users WHERE phone IS NOT NULL AND phone<>'' AND phone NOT LIKE '%-%'").fetchall():
+        db.execute("UPDATE users SET phone=? WHERE id=?", (format_phone(ph), rid))
 
     # --- 관리자 계정 보장 ---
     cnt = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -240,25 +255,26 @@ def signup():
     if session.get("uid"):
         return redirect(url_for("dashboard"))
     if request.method == "POST":
+        username = request.form.get("username", "").strip().upper()   # 로그인 ID(대문자)
         name = request.form.get("name", "").strip()
-        phone = request.form.get("phone", "").strip()
+        phone = format_phone(request.form.get("phone", "").strip())
         pw = request.form.get("password", "")
         pw2 = request.form.get("password2", "")
-        digits = "".join(ch for ch in phone if ch.isdigit())
-        if not name or not digits:
-            flash("이름과 전화번호를 입력하세요.", "error")
+        if not username or not name:
+            flash("아이디와 이름을 입력하세요.", "error")
+        elif len(username) < 3:
+            flash("아이디는 3자 이상이어야 합니다.", "error")
         elif len(pw) < 4:
             flash("비밀번호는 4자 이상이어야 합니다.", "error")
         elif pw != pw2:
             flash("비밀번호가 일치하지 않습니다.", "error")
-        elif get_db().execute("SELECT 1 FROM users WHERE username=?", (digits,)).fetchone():
-            flash("이미 가입 신청되었거나 사용 중인 전화번호입니다.", "error")
+        elif get_db().execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+            flash("이미 사용 중인 아이디입니다. 다른 아이디를 입력하세요.", "error")
         else:
-            # 가입 신청: ID는 임시로 전화번호, 관리자 승인 시 변경/지정
             get_db().execute(
                 "INSERT INTO users (username, password_hash, name, phone, role, status, is_active, annual_leave)"
                 " VALUES (?,?,?,?,?,?,?,?)",
-                (digits, hashpw(pw), name, phone, "employee", "pending", 0, 15))
+                (username, hashpw(pw), name, phone, "employee", "pending", 0, 15))
             get_db().commit()
             flash("가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.", "ok")
             return redirect(url_for("login"))
@@ -277,7 +293,7 @@ def account():
                 flash("이름은 비울 수 없습니다.", "error")
             else:
                 get_db().execute("UPDATE users SET name=?, phone=?, email=? WHERE id=?",
-                                 (name, request.form.get("phone", "").strip(),
+                                 (name, format_phone(request.form.get("phone", "").strip()),
                                   request.form.get("email", "").strip(), u["id"]))
                 get_db().commit()
                 flash("내 정보가 수정되었습니다.", "ok")
@@ -777,10 +793,11 @@ def admin_user_new():
             return render_template("admin/user_form.html", u=request.form, mode="new")
         pw = request.form.get("password") or "1234"
         try:
-            db.execute("""INSERT INTO users (username, emp_no, password_hash, name, email, dept, dept2, position, role, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                       (username, request.form.get("emp_no", "").strip(), hashpw(pw),
-                        request.form.get("name").strip(),
+            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, role, hire_date, annual_leave)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       (username, request.form.get("emp_no", "").strip(),
+                        request.form.get("ext", "").strip(), format_phone(request.form.get("phone", "").strip()),
+                        hashpw(pw), request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("role", "employee"),
@@ -811,10 +828,11 @@ def admin_user_edit(uid):
             flash("이미 사용 중인 아이디입니다.", "error")
             return render_template("admin/user_form.html", u=u, mode="edit")
         try:
-            db.execute("""UPDATE users SET username=?, emp_no=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
+            db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
                        (new_username, request.form.get("emp_no", "").strip(),
+                        request.form.get("ext", "").strip(),
                         request.form.get("name").strip(), request.form.get("email", "").strip(),
-                        request.form.get("phone", "").strip(),
+                        format_phone(request.form.get("phone", "").strip()),
                         request.form.get("dept", "").strip(), request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,

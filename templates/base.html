@@ -113,5 +113,21 @@
 })();
 </script>
 {% endif %}
+
+<script>
+/* 전화번호 자동 하이픈 (숫자만 입력해도 000-0000-0000) */
+(function(){
+  function fmt(v){
+    var d=(v||'').replace(/\D/g,'').slice(0,11);
+    if(d.length<4) return d;
+    if(d.length<8) return d.slice(0,3)+'-'+d.slice(3);
+    return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+  }
+  document.querySelectorAll('.phone-fmt').forEach(function(el){
+    el.addEventListener('input', function(){ this.value=fmt(this.value); });
+    if(el.value) el.value=fmt(el.value);
+  });
+})();
+</script>
 </body>
 </html>

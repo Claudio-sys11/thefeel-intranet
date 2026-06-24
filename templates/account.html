@@ -15,7 +15,7 @@
 <form method="post" class="form narrow">
   <input type="hidden" name="form" value="profile">
   <div class="row"><label>이름</label><input type="text" name="name" value="{{ current_user['name'] }}" required></div>
-  <div class="row"><label>전화번호</label><input type="tel" name="phone" value="{{ current_user['phone'] or '' }}" placeholder="010-0000-0000"></div>
+  <div class="row"><label>전화번호</label><input type="tel" name="phone" class="phone-fmt" value="{{ current_user['phone'] or '' }}" placeholder="010-0000-0000"></div>
   <div class="row"><label>이메일</label><input type="email" name="email" value="{{ current_user['email'] or '' }}"></div>
   <div class="actions"><button class="btn primary">정보 저장</button></div>
 </form>

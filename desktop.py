@@ -20,7 +20,7 @@ URL = f"http://127.0.0.1:{PORT}"
 TITLE = f"The Feel Intranet  v{version.__version__}"
 
 LOGIN_SIZE = (440, 690)     # 로그인 팝업 (기억 체크 + 하단 푸터)
-SIGNUP_SIZE = (440, 770)    # 회원가입 팝업 (한 화면에 다 보이게)
+SIGNUP_SIZE = (450, 830)    # 회원가입 팝업 (ID·전화·비번 한 화면에)
 MAIN_SIZE = (1280, 860)     # 로그인 후 메인 창 기본 크기(최대화 전 폴백)
 _login_win = None
 _main_win = None

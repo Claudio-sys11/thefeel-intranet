@@ -20,7 +20,7 @@
       <tr>
         <th style="width:42px"><input type="checkbox" id="chkall" title="전체 선택"></th>
         <th>아이디</th><th>사번</th><th>이름</th><th>부서</th><th>직급</th>
-        <th>권한</th><th>연차</th><th>승인</th><th>재직상태</th><th>관리</th>
+        <th>전화번호</th><th>내선</th><th>권한</th><th>연차</th><th>승인</th><th>재직상태</th><th>관리</th>
       </tr>
     </thead>
     <tbody>
@@ -32,6 +32,8 @@
         <td>{{ u['name'] }}</td>
         <td>{{ u['dept'] or '-' }}{% if u['dept2'] %} · {{ u['dept2'] }}{% endif %}</td>
         <td>{{ u['position'] or '-' }}</td>
+        <td>{{ u['phone'] or '-' }}</td>
+        <td>{{ u['ext'] or '-' }}</td>
         <td>{% if u['role']=='admin' %}<span class="tag admin">관리자</span>{% else %}직원{% endif %}</td>
         <td>{{ u['annual_leave'] }}</td>
         <td>

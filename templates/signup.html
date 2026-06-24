@@ -8,10 +8,13 @@
     <h1 class="wordmark sm">JOIN&nbsp;US</h1>
     <p class="sub">가입 신청 후 관리자 승인을 받으면 이용할 수 있어요</p>
     <form method="post">
+      <label>아이디(ID) <small>(대문자, 로그인 시 사용)</small></label>
+      <input type="text" name="username" id="s-user" value="{{ form.get('username','') }}"
+             autocapitalize="characters" oninput="this.value=this.value.toUpperCase()" autofocus required>
       <label>이름</label>
-      <input type="text" name="name" value="{{ form.get('name','') }}" autofocus required>
+      <input type="text" name="name" value="{{ form.get('name','') }}" required>
       <label>전화번호</label>
-      <input type="tel" name="phone" value="{{ form.get('phone','') }}" placeholder="010-0000-0000" required>
+      <input type="tel" name="phone" class="phone-fmt" value="{{ form.get('phone','') }}" placeholder="010-0000-0000" required>
       <label>비밀번호</label>
       <input type="password" name="password" required>
       <label>비밀번호 확인</label>
