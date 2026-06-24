@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     position      TEXT,                             -- 직급
     role          TEXT    NOT NULL DEFAULT 'employee', -- admin | employee
     status        TEXT    NOT NULL DEFAULT 'active',   -- pending | active | rejected
+    locked        INTEGER NOT NULL DEFAULT 0,          -- 계정 잠금(1=잠금, 로그인 불가)
     hire_date     TEXT,                             -- 입사일 (YYYY-MM-DD)
     annual_leave  REAL    NOT NULL DEFAULT 15,      -- 연간 부여 연차(일)
     is_active     INTEGER NOT NULL DEFAULT 1,

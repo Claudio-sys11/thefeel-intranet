@@ -22,22 +22,38 @@
 </section>
 {% endif %}
 <table class="list">
-  <thead><tr><th>아이디</th><th>사번</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>입사일</th><th>연차</th><th>상태</th><th></th></tr></thead>
+  <thead><tr><th>아이디</th><th>사번</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>연차</th><th>상태</th><th>관리</th></tr></thead>
   <tbody>
   {% for u in users %}
-    <tr class="{{ '' if u['is_active'] else 'inactive' }}">
+    <tr class="{{ '' if u['is_active'] and not u['locked'] else 'inactive' }}">
       <td class="muted">{{ u['username'] }}</td>
       <td class="muted">{{ u['emp_no'] or '-' }}</td>
       <td>{{ u['name'] }}</td>
       <td>{{ u['dept'] or '-' }}</td>
       <td>{{ u['position'] or '-' }}</td>
       <td>{% if u['role']=='admin' %}<span class="tag admin">관리자</span>{% else %}직원{% endif %}</td>
-      <td class="muted">{{ u['hire_date'] or '-' }}</td>
       <td>{{ u['annual_leave'] }}</td>
-      <td>{{ '재직' if u['is_active'] else '비활성' }}</td>
-      <td><a href="{{ url_for('admin_user_edit', uid=u['id']) }}" class="btn small">수정</a></td>
+      <td>
+        {% if u['locked'] %}<span class="st st-rejected">🔒 잠금</span>
+        {% elif u['is_active'] %}<span class="st st-approved">재직</span>
+        {% else %}<span class="st st-canceled">비활성</span>{% endif %}
+      </td>
+      <td class="row-actions">
+        <a href="{{ url_for('admin_user_edit', uid=u['id']) }}" class="btn small">수정</a>
+        <form method="post" action="{{ url_for('admin_user_reset_pw', uid=u['id']) }}" style="display:inline"
+              onsubmit="return confirm('{{ u['username'] }} 비밀번호를 1234로 초기화할까요?')">
+          <button class="btn small">비번초기화</button>
+        </form>
+        {% if u['role'] != 'admin' %}
+        <form method="post" action="{{ url_for('admin_user_lock', uid=u['id']) }}" style="display:inline">
+          {% if u['locked'] %}<button class="btn small primary">잠금해제</button>
+          {% else %}<button class="btn small danger">잠금</button>{% endif %}
+        </form>
+        {% endif %}
+      </td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+<p class="hint" style="margin-top:12px">※ 초기화 비밀번호는 <b>1234</b> 입니다. 잠긴 계정은 로그인할 수 없습니다. 로그인 ID는 대문자로만 사용됩니다.</p>
 {% endblock %}

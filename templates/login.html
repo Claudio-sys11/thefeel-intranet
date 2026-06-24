@@ -8,8 +8,9 @@
     <h1 class="wordmark">THE&nbsp;FEEL</h1>
     <p class="sub">Intranet · 사내 업무 포털</p>
     <form method="post" id="loginform">
-      <label>아이디</label>
-      <input type="text" name="username" id="f-user" autofocus required>
+      <label>아이디 <small>(대문자)</small></label>
+      <input type="text" name="username" id="f-user" autocapitalize="characters"
+             oninput="this.value=this.value.toUpperCase()" autofocus required>
       <label>비밀번호</label>
       <input type="password" name="password" id="f-pw" required>
       <div class="remember-row">
@@ -34,7 +35,7 @@ function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.clos
   var u=document.getElementById('f-user'), p=document.getElementById('f-pw'),
       rid=document.getElementById('rmb-id'), rpw=document.getElementById('rmb-pw');
   try{
-    var sid=localStorage.getItem('tfi_id'); if(sid){ u.value=sid; rid.checked=true; }
+    var sid=localStorage.getItem('tfi_id'); if(sid){ u.value=sid.toUpperCase(); rid.checked=true; }
     var spw=localStorage.getItem('tfi_pw'); if(spw){ p.value=spw; rpw.checked=true; }
   }catch(e){}
   if(u.value && !p.value){ p.focus(); }

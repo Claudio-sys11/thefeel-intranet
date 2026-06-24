@@ -133,6 +133,10 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
     if "emp_no" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN emp_no TEXT")
+    if "locked" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
+    # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
+    db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
 
     # --- 관리자 계정 보장 ---
     cnt = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -204,12 +208,14 @@ def admin_required(f):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        username = request.form.get("username", "").strip().upper()   # 로그인 ID는 대문자만
         password = request.form.get("password", "")
         row = get_db().execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
         if row and verifypw(row["password_hash"], password):
             if row["status"] == "pending":
                 flash("관리자 승인 대기 중인 계정입니다.", "error")
+            elif row["locked"]:
+                flash("잠긴 계정입니다. 관리자에게 문의하세요.", "error")
             elif row["status"] == "rejected" or not row["is_active"]:
                 flash("이용이 제한된 계정입니다. 관리자에게 문의하세요.", "error")
             else:
@@ -701,8 +707,8 @@ def admin_pending(uid):
             db.commit()
             flash("가입 신청을 거절했습니다.", "ok")
             return redirect(url_for("admin_users"))
-        # 승인: ID(변경) + 부서/직급 지정
-        username = request.form.get("username", "").strip()
+        # 승인: ID(변경, 대문자) + 부서/직급 지정
+        username = request.form.get("username", "").strip().upper()
         if not username:
             flash("ID를 입력하세요.", "error")
             return render_template("admin/pending.html", u=u)
@@ -731,7 +737,7 @@ def admin_pending(uid):
 def admin_user_new():
     if request.method == "POST":
         db = get_db()
-        username = request.form.get("username", "").strip()
+        username = request.form.get("username", "").strip().upper()
         if not username or not request.form.get("name", "").strip():
             flash("아이디와 이름은 필수입니다.", "error")
             return render_template("admin/user_form.html", u=request.form, mode="new")
@@ -765,7 +771,7 @@ def admin_user_edit(uid):
     if not u:
         abort(404)
     if request.method == "POST":
-        new_username = request.form.get("username", "").strip()
+        new_username = request.form.get("username", "").strip().upper()
         if not new_username:
             flash("아이디는 비울 수 없습니다.", "error")
             return render_template("admin/user_form.html", u=u, mode="edit")
@@ -791,6 +797,36 @@ def admin_user_edit(uid):
         flash("직원 정보를 수정했습니다." + (" 비밀번호를 '1234'로 초기화했습니다." if request.form.get("reset_pw") else ""), "ok")
         return redirect(url_for("admin_users"))
     return render_template("admin/user_form.html", u=u, mode="edit")
+
+
+@app.route("/admin/users/<int:uid>/lock", methods=["POST"])
+@admin_required
+def admin_user_lock(uid):
+    db = get_db()
+    u = db.execute("SELECT username, locked, role FROM users WHERE id=?", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    if u["role"] == "admin" and not u["locked"]:
+        flash("관리자 계정은 잠글 수 없습니다.", "error")
+        return redirect(url_for("admin_users"))
+    new_locked = 0 if u["locked"] else 1
+    db.execute("UPDATE users SET locked=? WHERE id=?", (new_locked, uid))
+    db.commit()
+    flash(f"{u['username']} 계정을 " + ("잠갔습니다." if new_locked else "잠금 해제했습니다."), "ok")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<int:uid>/reset_pw", methods=["POST"])
+@admin_required
+def admin_user_reset_pw(uid):
+    db = get_db()
+    u = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    db.execute("UPDATE users SET password_hash=? WHERE id=?", (hashpw("1234"), uid))
+    db.commit()
+    flash(f"{u['username']} 비밀번호를 '1234'로 초기화했습니다.", "ok")
+    return redirect(url_for("admin_users"))
 
 
 # ---------------------------------------------------------------- update
