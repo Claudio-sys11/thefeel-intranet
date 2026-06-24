@@ -66,16 +66,17 @@ def _on_login_loaded():
     elif path in ("/login", ""):
         _login_win.resize(*LOGIN_SIZE)
     elif _main_win is None:
-        # 로그인 성공 → 메인(테두리 있는) 창 열고 팝업 닫기 (세션 쿠키 공유)
+        # 로그인 성공 → 최대화된 메인(테두리 있는) 창을 열고 팝업 닫기 (세션 쿠키 공유)
         try:
             _main_win = webview.create_window(TITLE, url, width=APP_SIZE[0], height=APP_SIZE[1],
-                                              min_size=(960, 640))
+                                              min_size=(960, 640), maximized=True)
             _login_win.destroy()
         except Exception:
-            # 새 창 생성 실패 시: 기존 팝업을 메인 크기로 확대해 그대로 사용
+            # 새 창 생성 실패 시: 기존 팝업을 최대화해 그대로 사용
             _main_win = _login_win
             try:
                 _login_win.resize(*APP_SIZE)
+                _login_win.maximize()
             except Exception:
                 pass
 
