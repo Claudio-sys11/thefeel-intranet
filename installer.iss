@@ -2,9 +2,9 @@
 ; 버전은 build 단계에서 생성되는 version.iss(#define MyAppVersion) 에서 가져온다.
 #include "version.iss"
 
-#define MyAppName "더필코리아 인트라넷"
+#define MyAppName "The Feel Intranet"
 #define MyAppExe "ThefeelIntranet.exe"
-#define MyAppPublisher "THEFEEL KOREA"
+#define MyAppPublisher "THE FEEL KOREA"
 
 [Setup]
 ; 동일 AppId → 새 버전 설치 시 이전 버전을 자동 제거하고 같은 위치에 업그레이드
@@ -32,6 +32,11 @@ RestartApplications=no
 
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
+
+; 구버전(한글 제품명) 바로가기/그룹 잔재 정리
+[InstallDelete]
+Type: files;          Name: "{autodesktop}\더필코리아 인트라넷.lnk"
+Type: filesandordirs; Name: "{autoprograms}\더필코리아 인트라넷"
 
 [Files]
 Source: "dist\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion

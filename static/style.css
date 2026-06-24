@@ -40,13 +40,15 @@ main.plain{max-width:none;padding:0}
 .flash.error{background:#fee2e2;color:#991b1b}
 
 /* buttons */
-.btn{display:inline-block;padding:8px 16px;border-radius:8px;border:1px solid var(--line);
-  background:#fff;color:var(--text);font-weight:600;cursor:pointer;font-size:13px}
-.btn:hover{background:var(--bg);text-decoration:none}
-.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
-.btn.primary:hover{background:var(--primary-d)}
+.btn{display:inline-block;padding:9px 17px;border-radius:999px;border:1px solid var(--line);
+  background:#fff;color:var(--text);font-weight:700;cursor:pointer;font-size:13px;
+  transition:transform .14s,box-shadow .14s,filter .14s}
+.btn:hover{background:var(--bg);text-decoration:none;transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#6d28d9,#c026d3);border-color:transparent;color:#fff;
+  box-shadow:0 6px 18px rgba(124,28,180,.32)}
+.btn.primary:hover{filter:brightness(1.07);box-shadow:0 8px 22px rgba(124,28,180,.4)}
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
-.btn.small{padding:4px 10px;font-size:12px}
+.btn.small{padding:4px 12px;font-size:12px}
 .btn.full{width:100%}
 
 /* login */
@@ -162,6 +164,23 @@ table.list tr.inactive{opacity:.5}
 .act-box label{font-weight:600;display:block;margin-bottom:6px}
 .act-box textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-family:inherit}
 .back{display:inline-block;margin-top:10px;color:var(--muted)}
+
+/* hip branding */
+.brand-word{display:flex;align-items:baseline;gap:7px;font-weight:900;letter-spacing:1.5px;font-size:16px}
+.brand-word small{font-weight:600;letter-spacing:2px;font-size:10px;color:#c4b5fd;text-transform:uppercase}
+.wordmark{font-size:38px;font-weight:900;letter-spacing:2px;text-align:center;margin:0;line-height:1;
+  background:linear-gradient(120deg,#6d28d9,#c026d3 55%,#ec4899);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.login-card{position:relative;overflow:hidden}
+.login-card::before{content:"";position:absolute;inset:-2px;z-index:-1;
+  background:conic-gradient(from 180deg,#6d28d9,#c026d3,#ec4899,#6d28d9);filter:blur(26px);opacity:.16}
+.login-card .sub{letter-spacing:.3px}
+.signup-cta{text-align:center;color:var(--muted);font-size:13px;margin-top:18px}
+.signup-cta a{font-weight:800}
+.page-title{font-weight:800;letter-spacing:-.3px}
+.card{transition:transform .16s,box-shadow .16s}
+.card:hover{box-shadow:0 10px 26px rgba(42,10,94,.08)}
+.tag{border-radius:999px}
 
 /* update */
 .update-bar{background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;

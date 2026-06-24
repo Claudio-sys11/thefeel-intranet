@@ -13,7 +13,7 @@ import version
 
 HOST, PORT = "0.0.0.0", 5000
 URL = f"http://127.0.0.1:{PORT}"
-TITLE = f"더필코리아 인트라넷  v{version.__version__}"
+TITLE = f"The Feel Intranet  v{version.__version__}"
 
 
 class ServerThread(threading.Thread):

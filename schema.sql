@@ -7,10 +7,12 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT    NOT NULL UNIQUE,          -- 로그인 아이디(사번)
     password_hash TEXT    NOT NULL,
     name          TEXT    NOT NULL,
+    phone         TEXT,                             -- 전화번호
     email         TEXT,
     dept          TEXT,                             -- 부서
     position      TEXT,                             -- 직급
     role          TEXT    NOT NULL DEFAULT 'employee', -- admin | employee
+    status        TEXT    NOT NULL DEFAULT 'active',   -- pending | active | rejected
     hire_date     TEXT,                             -- 입사일 (YYYY-MM-DD)
     annual_leave  REAL    NOT NULL DEFAULT 15,      -- 연간 부여 연차(일)
     is_active     INTEGER NOT NULL DEFAULT 1,

@@ -21,6 +21,21 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# PyInstaller(frozen) 환경에서 OpenSSL scrypt 미지원으로 로그인이 실패하는 문제를
+# 피하기 위해 항상 이식성 좋은 pbkdf2 방식으로 해시한다.
+HASH_METHOD = "pbkdf2:sha256"
+
+
+def hashpw(pw):
+    return generate_password_hash(pw, method=HASH_METHOD)
+
+
+def verifypw(stored, pw):
+    try:
+        return check_password_hash(stored, pw)
+    except Exception:
+        return False
+
 import version
 import updater
 
@@ -41,6 +56,16 @@ else:
     DATA_DIR = BASE_DIR
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "intranet.db")
+
+# 파일 로깅 (frozen/windowed 환경에서 오류 추적용) - 핸들러 강제 부착
+import logging
+_root = logging.getLogger()
+for _h in list(_root.handlers):
+    _root.removeHandler(_h)
+_fh = logging.FileHandler(os.path.join(DATA_DIR, "app.log"), encoding="utf-8")
+_fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+_root.addHandler(_fh)
+_root.setLevel(logging.INFO)
 
 app = Flask(__name__,
             template_folder=resource_path("templates"),
@@ -91,21 +116,41 @@ def close_db(exc):
         db.close()
 
 
+ADMIN_USER = "THEFEELKOREA"
+ADMIN_PW = "231900"
+
+
 def init_db():
-    first = not os.path.exists(DB_PATH)
     db = sqlite3.connect(DB_PATH)
     with open(resource_path("schema.sql"), encoding="utf-8") as f:
         db.executescript(f.read())
-    # 최초 실행 시 관리자 계정 생성
-    cur = db.execute("SELECT COUNT(*) FROM users")
-    if cur.fetchone()[0] == 0:
+
+    # --- 컬럼 마이그레이션 (기존 DB 호환) ---
+    cols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
+    if "phone" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+    if "status" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+
+    # --- 관리자 계정 보장 ---
+    cnt = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    has_admin_id = db.execute("SELECT 1 FROM users WHERE username=?", (ADMIN_USER,)).fetchone()
+    legacy = db.execute("SELECT id FROM users WHERE username='admin'").fetchone()
+    if cnt == 0:
         db.execute(
-            "INSERT INTO users (username, password_hash, name, email, dept, position, role, hire_date, annual_leave)"
+            "INSERT INTO users (username, password_hash, name, dept, position, role, status, hire_date, annual_leave)"
             " VALUES (?,?,?,?,?,?,?,?,?)",
-            ("admin", generate_password_hash("admin1234"), "관리자", "admin@thefeel.co.kr",
-             "경영지원", "관리자", "admin", date.today().isoformat(), 15),
+            (ADMIN_USER, hashpw(ADMIN_PW), "관리자",
+             "경영지원", "관리자", "admin", "active", date.today().isoformat(), 15),
         )
-        print(">> 관리자 계정 생성: admin / admin1234  (최초 로그인 후 비밀번호를 변경하세요)")
+    elif legacy and not has_admin_id:
+        # 구버전 기본 admin 계정 → THEFEELKOREA 로 이관
+        db.execute("UPDATE users SET username=?, password_hash=?, role='admin', status='active', is_active=1 WHERE id=?",
+                   (ADMIN_USER, hashpw(ADMIN_PW), legacy["id"] if hasattr(legacy, "keys") else legacy[0]))
+
+    # frozen 환경에서 검증 불가한 scrypt 해시 자가 복구 (관리자 계정 한정, 평문 알고 있음)
+    db.execute("UPDATE users SET password_hash=? WHERE username=? AND password_hash LIKE 'scrypt:%'",
+               (hashpw(ADMIN_PW), ADMIN_USER))
     db.commit()
     db.close()
 
@@ -159,12 +204,18 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        row = get_db().execute("SELECT * FROM users WHERE username=? AND is_active=1", (username,)).fetchone()
-        if row and check_password_hash(row["password_hash"], password):
-            session.clear()
-            session["uid"] = row["id"]
-            return redirect(request.args.get("next") or url_for("dashboard"))
-        flash("아이디 또는 비밀번호가 올바르지 않습니다.", "error")
+        row = get_db().execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        if row and verifypw(row["password_hash"], password):
+            if row["status"] == "pending":
+                flash("관리자 승인 대기 중인 계정입니다.", "error")
+            elif row["status"] == "rejected" or not row["is_active"]:
+                flash("이용이 제한된 계정입니다. 관리자에게 문의하세요.", "error")
+            else:
+                session.clear()
+                session["uid"] = row["id"]
+                return redirect(request.args.get("next") or url_for("dashboard"))
+        else:
+            flash("아이디 또는 비밀번호가 올바르지 않습니다.", "error")
     return render_template("login.html")
 
 
@@ -174,22 +225,64 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if session.get("uid"):
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        pw = request.form.get("password", "")
+        pw2 = request.form.get("password2", "")
+        digits = "".join(ch for ch in phone if ch.isdigit())
+        if not name or not digits:
+            flash("이름과 전화번호를 입력하세요.", "error")
+        elif len(pw) < 4:
+            flash("비밀번호는 4자 이상이어야 합니다.", "error")
+        elif pw != pw2:
+            flash("비밀번호가 일치하지 않습니다.", "error")
+        elif get_db().execute("SELECT 1 FROM users WHERE username=?", (digits,)).fetchone():
+            flash("이미 가입 신청되었거나 사용 중인 전화번호입니다.", "error")
+        else:
+            # 가입 신청: ID는 임시로 전화번호, 관리자 승인 시 변경/지정
+            get_db().execute(
+                "INSERT INTO users (username, password_hash, name, phone, role, status, is_active, annual_leave)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (digits, hashpw(pw), name, phone, "employee", "pending", 0, 15))
+            get_db().commit()
+            flash("가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.", "ok")
+            return redirect(url_for("login"))
+    return render_template("signup.html", form=request.form)
+
+
 @app.route("/account", methods=["GET", "POST"])
 @login_required
 def account():
     u = current_user()
     if request.method == "POST":
-        cur = request.form.get("current_pw", "")
-        new = request.form.get("new_pw", "")
-        if not check_password_hash(u["password_hash"], cur):
-            flash("현재 비밀번호가 일치하지 않습니다.", "error")
-        elif len(new) < 4:
-            flash("새 비밀번호는 4자 이상이어야 합니다.", "error")
-        else:
-            get_db().execute("UPDATE users SET password_hash=? WHERE id=?",
-                             (generate_password_hash(new), u["id"]))
-            get_db().commit()
-            flash("비밀번호가 변경되었습니다.", "ok")
+        form = request.form.get("form")
+        if form == "profile":
+            name = request.form.get("name", "").strip()
+            if not name:
+                flash("이름은 비울 수 없습니다.", "error")
+            else:
+                get_db().execute("UPDATE users SET name=?, phone=?, email=? WHERE id=?",
+                                 (name, request.form.get("phone", "").strip(),
+                                  request.form.get("email", "").strip(), u["id"]))
+                get_db().commit()
+                flash("내 정보가 수정되었습니다.", "ok")
+        else:  # 비밀번호 변경
+            cur = request.form.get("current_pw", "")
+            new = request.form.get("new_pw", "")
+            if not verifypw(u["password_hash"], cur):
+                flash("현재 비밀번호가 일치하지 않습니다.", "error")
+            elif len(new) < 4:
+                flash("새 비밀번호는 4자 이상이어야 합니다.", "error")
+            else:
+                get_db().execute("UPDATE users SET password_hash=? WHERE id=?",
+                                 (hashpw(new), u["id"]))
+                get_db().commit()
+                flash("비밀번호가 변경되었습니다.", "ok")
         return redirect(url_for("account"))
     return render_template("account.html")
 
@@ -586,8 +679,48 @@ def leave_calendar():
 @app.route("/admin/users")
 @admin_required
 def admin_users():
-    users = get_db().execute("SELECT * FROM users ORDER BY is_active DESC, dept, name").fetchall()
-    return render_template("admin/users.html", users=users)
+    db = get_db()
+    users = db.execute("SELECT * FROM users WHERE status!='pending' ORDER BY is_active DESC, dept, name").fetchall()
+    pending = db.execute("SELECT * FROM users WHERE status='pending' ORDER BY created_at").fetchall()
+    return render_template("admin/users.html", users=users, pending=pending)
+
+
+@app.route("/admin/pending/<int:uid>", methods=["GET", "POST"])
+@admin_required
+def admin_pending(uid):
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE id=? AND status='pending'", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "reject":
+            db.execute("UPDATE users SET status='rejected', is_active=0 WHERE id=?", (uid,))
+            db.commit()
+            flash("가입 신청을 거절했습니다.", "ok")
+            return redirect(url_for("admin_users"))
+        # 승인: ID(변경) + 부서/직급 지정
+        username = request.form.get("username", "").strip()
+        if not username:
+            flash("ID를 입력하세요.", "error")
+            return render_template("admin/pending.html", u=u)
+        dup = db.execute("SELECT 1 FROM users WHERE username=? AND id!=?", (username, uid)).fetchone()
+        if dup:
+            flash("이미 사용 중인 ID입니다.", "error")
+            return render_template("admin/pending.html", u=u)
+        try:
+            db.execute("""UPDATE users SET username=?, dept=?, position=?, role=?, hire_date=?,
+                          annual_leave=?, status='active', is_active=1 WHERE id=?""",
+                       (username, request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
+                        request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
+                        float(request.form.get("annual_leave") or 15), uid))
+            db.commit()
+        except ValueError:
+            flash("연차 일수는 숫자여야 합니다.", "error")
+            return render_template("admin/pending.html", u=u)
+        flash(f"가입을 승인했습니다. (ID: {username})", "ok")
+        return redirect(url_for("admin_users"))
+    return render_template("admin/pending.html", u=u)
 
 
 @app.route("/admin/users/new", methods=["GET", "POST"])
@@ -606,7 +739,7 @@ def admin_user_new():
         try:
             db.execute("""INSERT INTO users (username, password_hash, name, email, dept, position, role, hire_date, annual_leave)
                           VALUES (?,?,?,?,?,?,?,?,?)""",
-                       (username, generate_password_hash(pw), request.form.get("name").strip(),
+                       (username, hashpw(pw), request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("role", "employee"),
                         request.form.get("hire_date", "").strip() or None,
@@ -637,7 +770,7 @@ def admin_user_edit(uid):
                         1 if request.form.get("is_active") else 0, uid))
             if request.form.get("reset_pw"):
                 db.execute("UPDATE users SET password_hash=? WHERE id=?",
-                           (generate_password_hash("1234"), uid))
+                           (hashpw("1234"), uid))
             db.commit()
         except ValueError:
             flash("연차 일수는 숫자여야 합니다.", "error")

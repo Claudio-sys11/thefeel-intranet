@@ -1,20 +1,29 @@
 {% extends "base.html" %}
-{% block title %}내 정보 · 더필 인트라넷{% endblock %}
+{% block title %}내 정보 · The Feel Intranet{% endblock %}
 {% block content %}
 <h2 class="page-title">내 정보</h2>
-<table class="kv card">
-  <tr><th>아이디</th><td>{{ current_user['username'] }}</td></tr>
-  <tr><th>이름</th><td>{{ current_user['name'] }}</td></tr>
-  <tr><th>부서 / 직급</th><td>{{ current_user['dept'] or '-' }} / {{ current_user['position'] or '-' }}</td></tr>
-  <tr><th>이메일</th><td>{{ current_user['email'] or '-' }}</td></tr>
-  <tr><th>입사일</th><td>{{ current_user['hire_date'] or '-' }}</td></tr>
-  <tr><th>연간 연차</th><td>{{ current_user['annual_leave'] }}일</td></tr>
-</table>
+
+<div class="doc-meta">
+  <span><b>아이디</b> {{ current_user['username'] }}</span>
+  <span><b>부서 / 직급</b> {{ current_user['dept'] or '-' }} / {{ current_user['position'] or '-' }}</span>
+  <span><b>입사일</b> {{ current_user['hire_date'] or '-' }}</span>
+  <span><b>연간 연차</b> {{ current_user['annual_leave'] }}일</span>
+</div>
+
+<h3 class="sub-title">정보 변경</h3>
+<form method="post" class="form narrow">
+  <input type="hidden" name="form" value="profile">
+  <div class="row"><label>이름</label><input type="text" name="name" value="{{ current_user['name'] }}" required></div>
+  <div class="row"><label>전화번호</label><input type="tel" name="phone" value="{{ current_user['phone'] or '' }}" placeholder="010-0000-0000"></div>
+  <div class="row"><label>이메일</label><input type="email" name="email" value="{{ current_user['email'] or '' }}"></div>
+  <div class="actions"><button class="btn primary">정보 저장</button></div>
+</form>
 
 <h3 class="sub-title">비밀번호 변경</h3>
 <form method="post" class="form narrow">
+  <input type="hidden" name="form" value="password">
   <div class="row"><label>현재 비밀번호</label><input type="password" name="current_pw" required></div>
   <div class="row"><label>새 비밀번호</label><input type="password" name="new_pw" required></div>
-  <div class="actions"><button class="btn primary">변경</button></div>
+  <div class="actions"><button class="btn primary">비밀번호 변경</button></div>
 </form>
 {% endblock %}

@@ -1,10 +1,26 @@
 {% extends "base.html" %}
-{% block title %}직원 관리 · 더필 인트라넷{% endblock %}
+{% block title %}직원 관리 · The Feel Intranet{% endblock %}
 {% block content %}
 <div class="page-head">
   <h2 class="page-title">직원 관리</h2>
   <a href="{{ url_for('admin_user_new') }}" class="btn primary">＋ 직원 추가</a>
 </div>
+
+{% if pending %}
+<section class="card" style="margin-bottom:22px;border-color:#fca5a5">
+  <div class="card-head"><h3>🔔 가입 승인 대기 <span class="badge">{{ pending|length }}</span></h3></div>
+  <table class="mini">
+    {% for p in pending %}
+    <tr>
+      <td><b>{{ p['name'] }}</b></td>
+      <td class="muted">{{ p['phone'] or '-' }}</td>
+      <td class="muted">{{ p['created_at'][:16] }}</td>
+      <td class="r"><a href="{{ url_for('admin_pending', uid=p['id']) }}" class="btn small primary">승인 처리</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
 <table class="list">
   <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>입사일</th><th>연차</th><th>상태</th><th></th></tr></thead>
   <tbody>

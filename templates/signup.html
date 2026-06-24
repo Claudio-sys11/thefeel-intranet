@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}회원가입 · The Feel Intranet{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <img src="{{ url_for('static', filename='logo.svg') }}" alt="The Feel" class="login-logo">
+    <h1 class="wordmark">JOIN&nbsp;US</h1>
+    <p class="sub">가입 신청 후 관리자 승인을 받으면 이용할 수 있어요</p>
+    <form method="post">
+      <label>이름</label>
+      <input type="text" name="name" value="{{ form.get('name','') }}" autofocus required>
+      <label>전화번호</label>
+      <input type="tel" name="phone" value="{{ form.get('phone','') }}" placeholder="010-0000-0000" required>
+      <label>비밀번호</label>
+      <input type="password" name="password" required>
+      <label>비밀번호 확인</label>
+      <input type="password" name="password2" required>
+      <button type="submit" class="btn primary full">가입 신청</button>
+    </form>
+    <p class="signup-cta"><a href="{{ url_for('login') }}">← 로그인으로 돌아가기</a></p>
+  </div>
+</div>
+{% endblock %}
