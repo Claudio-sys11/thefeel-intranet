@@ -14,7 +14,7 @@ GRID = [
     "0101111111",
     "0001100011",
     "0001101011",
-    "0001101011",
+    "0001101111",
     "0001100011",
     "0001100011",
     "0001100011",
@@ -45,7 +45,7 @@ def draw(size):
     # 둥근 모서리 마스크
     mask = Image.new("L", (size, size), 0)
     md = ImageDraw.Draw(mask)
-    radius = int(size * 0.22)
+    radius = int(size * 0.26)
     md.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
     img.paste(grad, (0, 0), mask)
     # 흰색 마크
@@ -81,7 +81,7 @@ def make_svg():
       <stop offset="1" stop-color="#1a0740"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="0" width="100" height="100" rx="22" fill="url(#bg)"/>
+  <rect x="0" y="0" width="100" height="100" rx="26" fill="url(#bg)"/>
   {''.join(rects)}
 </svg>
 '''
