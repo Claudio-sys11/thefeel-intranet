@@ -9,19 +9,20 @@
 {% if rows %}
 <table class="list center wide">
   <thead>
-    <tr><th>이름</th><th>부서</th><th>직급</th><th>직책</th><th>연차 부여(일)</th><th>사용</th><th>상신중</th><th>잔여</th><th>저장</th></tr>
+    <tr><th>사번</th><th>이름</th><th>직급</th><th>부서</th><th>직책</th><th>연차 부여(일)</th><th>사용</th><th>상신중</th><th>잔여</th><th>저장</th></tr>
   </thead>
   <tbody>
   {% for r in rows %}
     <tr>
+      <td class="muted">{{ r.u['emp_no'] or '-' }}</td>
       <td>{{ r.u['name'] }}</td>
-      <td>{{ r.u['dept'] or '-' }}{% if r.u['dept2'] %} · {{ r.u['dept2'] }}{% endif %}</td>
       <td>{{ r.u['position'] or '-' }}</td>
+      <td>{{ r.u['dept'] or '-' }}{% if r.u['dept2'] %} · {{ r.u['dept2'] }}{% endif %}</td>
       <td>{{ r.u['job_title'] or '-' }}</td>
       <td>
         <form id="lf{{ r.u['id'] }}" method="post" action="{{ url_for('leave_admin_set') }}" style="margin:0">
           <input type="hidden" name="uid" value="{{ r.u['id'] }}">
-          <input type="number" step="0.5" min="0" name="annual_leave" value="{{ r.leave.total }}" style="width:96px;text-align:center">
+          <input type="number" step="0.5" min="0" name="annual_leave" value="{{ r.leave.total }}" class="leave-input">
         </form>
       </td>
       <td>{{ r.leave.used }}</td>
