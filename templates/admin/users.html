@@ -13,6 +13,7 @@
               onclick="return checkedAny('잠금 해제할')">잠금 해제</button>
       <button name="action" value="delete" class="btn danger"
               onclick="return checkedDelete()">삭제</button>
+      <a href="{{ url_for('admin_users') }}" class="btn" title="목록 새로고침">⟳ 새로고침</a>
       <a href="{{ url_for('admin_user_new') }}" class="btn primary">＋ 직원 추가</a>
     </div>
   </div>
