@@ -4,12 +4,14 @@
 <h2 class="page-title">{{ '직원 추가' if mode=='new' else '직원 정보 수정' }}</h2>
 <form method="post" class="form">
   <div class="row two">
-    <div>
-      <label>아이디(사번)</label>
-      {% if mode=='new' %}<input type="text" name="username" value="{{ u['username'] if u['username'] is defined else '' }}" required>
-      {% else %}<input type="text" value="{{ u['username'] }}" disabled>{% endif %}
-    </div>
+    <div><label>아이디(ID) <small>로그인 시 사용</small></label>
+      <input type="text" name="username" value="{{ u['username'] if u['username'] is defined else '' }}" required></div>
+    <div><label>사번</label>
+      <input type="text" name="emp_no" value="{{ u['emp_no'] if u['emp_no'] is defined else '' }}" placeholder="예: 2024-001"></div>
+  </div>
+  <div class="row two">
     <div><label>이름</label><input type="text" name="name" value="{{ u['name'] if u['name'] is defined else '' }}" required></div>
+    <div><label>전화번호</label><input type="tel" name="phone" value="{{ u['phone'] if u['phone'] is defined else '' }}"></div>
   </div>
   <div class="row two">
     <div><label>부서</label><input type="text" name="dept" value="{{ u['dept'] if u['dept'] is defined else '' }}"></div>

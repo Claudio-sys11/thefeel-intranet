@@ -5,6 +5,7 @@
 
 <div class="doc-meta">
   <span><b>아이디</b> {{ current_user['username'] }}</span>
+  <span><b>사번</b> {{ current_user['emp_no'] or '-' }}</span>
   <span><b>부서 / 직급</b> {{ current_user['dept'] or '-' }} / {{ current_user['position'] or '-' }}</span>
   <span><b>입사일</b> {{ current_user['hire_date'] or '-' }}</span>
   <span><b>연간 연차</b> {{ current_user['annual_leave'] }}일</span>

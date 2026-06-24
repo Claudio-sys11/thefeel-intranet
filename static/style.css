@@ -61,6 +61,21 @@ main.plain{max-width:none;padding:0}
 .login-card input{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
 .login-card button{margin-top:22px}
 .hint{text-align:center;color:var(--muted);font-size:12px;margin-top:18px}
+/* frameless popup */
+.popup-close{position:fixed;top:12px;right:14px;z-index:5;width:30px;height:30px;border-radius:50%;
+  border:0;background:rgba(255,255,255,.18);color:#fff;font-size:14px;cursor:pointer;line-height:1}
+.popup-close:hover{background:rgba(255,255,255,.34)}
+.ver-check{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
+.ver-check.ok b{color:var(--primary)}
+.ver-check.has{color:#b45309;font-weight:600}
+.login-logo.sm{width:46px;height:46px;margin-bottom:8px}
+.wordmark.sm{font-size:28px}
+.signup-card{padding:26px 30px}
+.signup-card label{margin:9px 0 4px}
+.signup-card input{padding:9px}
+.signup-card .sub{margin:4px 0 12px;font-size:12px}
+.signup-card .btn.full{margin-top:14px}
+.signup-card .signup-cta{margin-top:12px}
 
 /* dashboard grid */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}

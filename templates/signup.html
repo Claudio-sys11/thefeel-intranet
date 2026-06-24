@@ -2,9 +2,10 @@
 {% block title %}회원가입 · The Feel Intranet{% endblock %}
 {% block content %}
 <div class="login-wrap">
-  <div class="login-card">
-    <img src="{{ url_for('static', filename='logo.svg') }}" alt="The Feel" class="login-logo">
-    <h1 class="wordmark">JOIN&nbsp;US</h1>
+  <button class="popup-close" onclick="closeApp()" title="닫기">✕</button>
+  <div class="login-card signup-card">
+    <img src="{{ url_for('static', filename='logo.svg') }}" alt="The Feel" class="login-logo sm">
+    <h1 class="wordmark sm">JOIN&nbsp;US</h1>
     <p class="sub">가입 신청 후 관리자 승인을 받으면 이용할 수 있어요</p>
     <form method="post">
       <label>이름</label>
@@ -20,4 +21,7 @@
     <p class="signup-cta"><a href="{{ url_for('login') }}">← 로그인으로 돌아가기</a></p>
   </div>
 </div>
+<script>
+function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.close_app){pywebview.api.close_app();return;} }catch(e){} window.close(); }
+</script>
 {% endblock %}

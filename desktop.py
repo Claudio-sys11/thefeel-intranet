@@ -15,9 +15,17 @@ HOST, PORT = "0.0.0.0", 5000
 URL = f"http://127.0.0.1:{PORT}"
 TITLE = f"The Feel Intranet  v{version.__version__}"
 
-LOGIN_SIZE = (440, 600)     # 로그인/회원가입 = 작은 팝업
+LOGIN_SIZE = (430, 600)     # 로그인 팝업
+SIGNUP_SIZE = (430, 760)    # 회원가입 팝업 (한 화면에 다 보이게)
 APP_SIZE = (1240, 860)      # 로그인 후 메인 앱
-_window = None
+_login_win = None
+_main_win = None
+
+
+class Api:
+    """프레임 없는 로그인 팝업에서 호출하는 JS 브리지"""
+    def close_app(self):
+        os._exit(0)
 
 
 class ServerThread(threading.Thread):
@@ -40,31 +48,49 @@ def start_server():
         return False  # 이미 실행 중 → 기존 서버 창만 띄움
 
 
-def _on_loaded():
-    """페이지 이동 시 URL을 보고 창 크기를 전환.
-    로그인/회원가입 = 작은 팝업, 그 외(메인 앱) = 큰 창."""
-    global _window
+def _on_login_loaded():
+    """로그인 팝업에서 페이지가 바뀔 때:
+    - /login : 로그인 팝업 크기
+    - /signup: 회원가입 팝업 크기(한 화면에 다 보이게)
+    - 그 외(로그인 성공): 메인 앱 창을 열고 팝업을 닫는다."""
+    global _login_win, _main_win
     try:
+        import webview
         import urllib.parse
-        path = urllib.parse.urlparse(_window.get_current_url() or "").path
+        url = _login_win.get_current_url() or ""
+        path = urllib.parse.urlparse(url).path.rstrip("/")
     except Exception:
         return
-    if path.rstrip("/") in ("/login", "/signup"):
-        _window.resize(*LOGIN_SIZE)
-    else:
-        _window.resize(*APP_SIZE)
+    if path == "/signup":
+        _login_win.resize(*SIGNUP_SIZE)
+    elif path in ("/login", ""):
+        _login_win.resize(*LOGIN_SIZE)
+    elif _main_win is None:
+        # 로그인 성공 → 메인(테두리 있는) 창 열고 팝업 닫기 (세션 쿠키 공유)
+        try:
+            _main_win = webview.create_window(TITLE, url, width=APP_SIZE[0], height=APP_SIZE[1],
+                                              min_size=(960, 640))
+            _login_win.destroy()
+        except Exception:
+            # 새 창 생성 실패 시: 기존 팝업을 메인 크기로 확대해 그대로 사용
+            _main_win = _login_win
+            try:
+                _login_win.resize(*APP_SIZE)
+            except Exception:
+                pass
 
 
 def main():
-    global _window
+    global _login_win
     start_server()
     try:
         import webview
-        # 로그인 팝업 크기로 시작 (미인증 시 / → /login 리다이렉트)
-        _window = webview.create_window(TITLE, URL,
-                                        width=LOGIN_SIZE[0], height=LOGIN_SIZE[1],
-                                        min_size=(380, 520))
-        _window.events.loaded += _on_loaded
+        # 프레임 없는(윈도우 창 없는) 로그인 팝업으로 시작 → 실행 즉시 버전 체크 + 로그인
+        _login_win = webview.create_window(
+            TITLE, URL, js_api=Api(),
+            width=LOGIN_SIZE[0], height=LOGIN_SIZE[1],
+            frameless=True, easy_drag=True, resizable=False)
+        _login_win.events.loaded += _on_login_loaded
         webview.start()
     except Exception:
         # WebView2 런타임이 없는 환경 등 → 기본 브라우저로 폴백

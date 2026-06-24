@@ -131,6 +131,8 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN phone TEXT")
     if "status" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+    if "emp_no" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN emp_no TEXT")
 
     # --- 관리자 계정 보장 ---
     cnt = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -709,9 +711,10 @@ def admin_pending(uid):
             flash("이미 사용 중인 ID입니다.", "error")
             return render_template("admin/pending.html", u=u)
         try:
-            db.execute("""UPDATE users SET username=?, dept=?, position=?, role=?, hire_date=?,
+            db.execute("""UPDATE users SET username=?, emp_no=?, dept=?, position=?, role=?, hire_date=?,
                           annual_leave=?, status='active', is_active=1 WHERE id=?""",
-                       (username, request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
+                       (username, request.form.get("emp_no", "").strip(),
+                        request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15), uid))
             db.commit()
@@ -737,9 +740,10 @@ def admin_user_new():
             return render_template("admin/user_form.html", u=request.form, mode="new")
         pw = request.form.get("password") or "1234"
         try:
-            db.execute("""INSERT INTO users (username, password_hash, name, email, dept, position, role, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?)""",
-                       (username, hashpw(pw), request.form.get("name").strip(),
+            db.execute("""INSERT INTO users (username, emp_no, password_hash, name, email, dept, position, role, hire_date, annual_leave)
+                          VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                       (username, request.form.get("emp_no", "").strip(), hashpw(pw),
+                        request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("role", "employee"),
                         request.form.get("hire_date", "").strip() or None,
@@ -761,9 +765,18 @@ def admin_user_edit(uid):
     if not u:
         abort(404)
     if request.method == "POST":
+        new_username = request.form.get("username", "").strip()
+        if not new_username:
+            flash("아이디는 비울 수 없습니다.", "error")
+            return render_template("admin/user_form.html", u=u, mode="edit")
+        if db.execute("SELECT 1 FROM users WHERE username=? AND id!=?", (new_username, uid)).fetchone():
+            flash("이미 사용 중인 아이디입니다.", "error")
+            return render_template("admin/user_form.html", u=u, mode="edit")
         try:
-            db.execute("""UPDATE users SET name=?, email=?, dept=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
-                       (request.form.get("name").strip(), request.form.get("email", "").strip(),
+            db.execute("""UPDATE users SET username=?, emp_no=?, name=?, email=?, phone=?, dept=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
+                       (new_username, request.form.get("emp_no", "").strip(),
+                        request.form.get("name").strip(), request.form.get("email", "").strip(),
+                        request.form.get("phone", "").strip(),
                         request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15),
@@ -785,6 +798,18 @@ def admin_user_edit(uid):
 @login_required
 def update_page():
     return render_template("update.html", info=updater.UPDATE_INFO)
+
+
+@app.route("/update/public_status")
+def update_public_status():
+    """로그인 전(시작 팝업)에서도 버전 확인 가능한 공개 엔드포인트"""
+    info = updater.UPDATE_INFO
+    return jsonify({
+        "checked": updater.UPDATE_CHECKED,
+        "current": version.__version__,
+        "latest": info["latest"] if info else version.__version__,
+        "available": bool(info),
+    })
 
 
 @app.route("/update/status")

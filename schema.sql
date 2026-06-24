@@ -4,9 +4,10 @@ PRAGMA foreign_keys = ON;
 -- 직원 / 사용자
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    username      TEXT    NOT NULL UNIQUE,          -- 로그인 아이디(사번)
+    username      TEXT    NOT NULL UNIQUE,          -- 로그인 아이디(ID)
     password_hash TEXT    NOT NULL,
     name          TEXT    NOT NULL,
+    emp_no        TEXT,                             -- 사번
     phone         TEXT,                             -- 전화번호
     email         TEXT,
     dept          TEXT,                             -- 부서

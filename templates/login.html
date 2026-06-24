@@ -2,6 +2,7 @@
 {% block title %}로그인 · The Feel Intranet{% endblock %}
 {% block content %}
 <div class="login-wrap">
+  <button class="popup-close" onclick="closeApp()" title="닫기">✕</button>
   <div class="login-card">
     <img src="{{ url_for('static', filename='logo.svg') }}" alt="The Feel" class="login-logo">
     <h1 class="wordmark">THE&nbsp;FEEL</h1>
@@ -14,6 +15,21 @@
       <button type="submit" class="btn primary full">로그인</button>
     </form>
     <p class="signup-cta">아직 계정이 없으신가요? <a href="{{ url_for('signup') }}">회원가입</a></p>
+    <div class="ver-check" id="ver-check">최신 버전 확인 중…</div>
   </div>
 </div>
+<script>
+function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.close_app){pywebview.api.close_app();return;} }catch(e){} window.close(); }
+(function(){
+  var el=document.getElementById('ver-check');
+  function check(){
+    fetch('/update/public_status').then(function(r){return r.json()}).then(function(s){
+      if(!s.checked){ el.textContent='최신 버전 확인 중…'; setTimeout(check,1500); return; }
+      if(s.available){ el.className='ver-check has'; el.innerHTML='🆕 새 버전 <b>v'+s.latest+'</b> 사용 가능 · 로그인 후 업데이트'; }
+      else{ el.className='ver-check ok'; el.innerHTML='✓ 최신 버전 <b>v'+s.current+'</b>'; }
+    }).catch(function(){ el.textContent='버전 확인 실패'; });
+  }
+  check();
+})();
+</script>
 {% endblock %}

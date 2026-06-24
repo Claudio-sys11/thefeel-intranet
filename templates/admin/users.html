@@ -22,11 +22,12 @@
 </section>
 {% endif %}
 <table class="list">
-  <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>입사일</th><th>연차</th><th>상태</th><th></th></tr></thead>
+  <thead><tr><th>아이디</th><th>사번</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>입사일</th><th>연차</th><th>상태</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
     <tr class="{{ '' if u['is_active'] else 'inactive' }}">
       <td class="muted">{{ u['username'] }}</td>
+      <td class="muted">{{ u['emp_no'] or '-' }}</td>
       <td>{{ u['name'] }}</td>
       <td>{{ u['dept'] or '-' }}</td>
       <td>{{ u['position'] or '-' }}</td>
