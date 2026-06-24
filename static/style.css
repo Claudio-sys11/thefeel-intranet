@@ -79,7 +79,8 @@ main.plain{max-width:none;padding:0}
 .btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
 .btn.ok:hover{filter:brightness(1.05)}
 table.list.center th,table.list.center td{text-align:center;vertical-align:middle}
-table.list.wide th,table.list.wide td{padding:13px 11px}
+table.list.wide th,table.list.wide td{padding:12px 9px}
+.status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
 table.list .rowchk,#chkall{width:17px;height:17px;cursor:pointer}
 .ver-check{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
 .ver-check.ok b{color:var(--primary)}

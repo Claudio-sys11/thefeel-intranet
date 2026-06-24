@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     dept          TEXT,                             -- 부서(1)
     dept2         TEXT,                             -- 부서(2)
     position      TEXT,                             -- 직급
+    job_title     TEXT,                             -- 직책
     role          TEXT    NOT NULL DEFAULT 'employee', -- admin | employee
     status        TEXT    NOT NULL DEFAULT 'active',   -- pending | active | rejected
     locked        INTEGER NOT NULL DEFAULT 0,          -- 계정 잠금(1=잠금, 로그인 불가)

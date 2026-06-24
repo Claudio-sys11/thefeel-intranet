@@ -149,6 +149,8 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN dept2 TEXT")
     if "ext" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN ext TEXT")
+    if "job_title" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN job_title TEXT")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -233,7 +235,9 @@ def login():
                 flash("관리자 승인 대기 중인 계정입니다.", "error")
             elif row["locked"]:
                 flash("잠긴 계정입니다. 관리자에게 문의하세요.", "error")
-            elif row["status"] == "rejected" or not row["is_active"]:
+            elif not row["is_active"]:
+                flash("퇴사 처리되어 로그인할 수 없습니다. 관리자에게 문의하세요.", "error")
+            elif row["status"] == "rejected":
                 flash("이용이 제한된 계정입니다. 관리자에게 문의하세요.", "error")
             else:
                 session.clear()
@@ -809,14 +813,15 @@ def admin_user_new():
             return render_template("admin/user_form.html", u=request.form, mode="new")
         pw = request.form.get("password") or "1234"
         try:
-            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, role, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, job_title, role, hire_date, annual_leave)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                        (username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(), format_phone(request.form.get("phone", "").strip()),
                         hashpw(pw), request.form.get("name").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("dept2", "").strip(),
-                        request.form.get("position", "").strip(), request.form.get("role", "employee"),
+                        request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
+                        request.form.get("role", "employee"),
                         request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15)))
             db.commit()
@@ -844,16 +849,16 @@ def admin_user_edit(uid):
             flash("이미 사용 중인 아이디입니다.", "error")
             return render_template("admin/user_form.html", u=u, mode="edit")
         try:
-            db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
+            db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, job_title=?, role=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
                        (new_username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(),
                         request.form.get("name").strip(), request.form.get("email", "").strip(),
                         format_phone(request.form.get("phone", "").strip()),
                         request.form.get("dept", "").strip(), request.form.get("dept2", "").strip(),
-                        request.form.get("position", "").strip(),
+                        request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
                         float(request.form.get("annual_leave") or 15),
-                        1 if request.form.get("is_active") else 0, uid))
+                        1 if request.form.get("emp_status", "active") == "active" else 0, uid))
             if request.form.get("reset_pw"):
                 db.execute("UPDATE users SET password_hash=? WHERE id=?",
                            (hashpw("1234"), uid))

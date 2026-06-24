@@ -18,8 +18,12 @@
     <div><label>부서 2 <small>(선택)</small></label><input type="text" name="dept2" value="{{ u['dept2'] if u['dept2'] is defined else '' }}" placeholder="겸직 부서"></div>
   </div>
   <div class="row two">
-    <div><label>직급</label><input type="text" name="position" value="{{ u['position'] if u['position'] is defined else '' }}"></div>
+    <div><label>직급 <small>(예: 대리, 과장)</small></label><input type="text" name="position" value="{{ u['position'] if u['position'] is defined else '' }}"></div>
+    <div><label>직책 <small>(예: 팀장, 본부장)</small></label><input type="text" name="job_title" value="{{ u['job_title'] if u['job_title'] is defined else '' }}"></div>
+  </div>
+  <div class="row two">
     <div><label>입사일</label><input type="date" name="hire_date" value="{{ u['hire_date'] if u['hire_date'] is defined else '' }}"></div>
+    <div></div>
   </div>
   <div class="row two">
     <div><label>내선번호</label><input type="text" name="ext" value="{{ u['ext'] if u['ext'] is defined else '' }}" placeholder="예: 1234"></div>
@@ -39,8 +43,14 @@
   {% if mode=='new' %}
   <div class="row"><label>초기 비밀번호 <small>(미입력 시 1234)</small></label><input type="text" name="password" placeholder="1234"></div>
   {% else %}
-  <div class="row two">
-    <label class="chk"><input type="checkbox" name="is_active" {{ 'checked' if u['is_active'] }}> 재직중(활성)</label>
+  <div class="row">
+    <label>재직 상태 <small>(퇴사 시 로그인 차단)</small></label>
+    <div class="status-radio">
+      <label class="chk"><input type="radio" name="emp_status" value="active" {{ 'checked' if u['is_active'] }}> 재직중</label>
+      <label class="chk"><input type="radio" name="emp_status" value="resigned" {{ 'checked' if not u['is_active'] }}> 퇴사</label>
+    </div>
+  </div>
+  <div class="row">
     <label class="chk"><input type="checkbox" name="reset_pw"> 비밀번호를 '1234'로 초기화</label>
   </div>
   {% endif %}
