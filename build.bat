@@ -21,7 +21,7 @@ python -c "import version;open('version.iss','w',encoding='utf-8').write('#defin
 for /f "tokens=2 delims== " %%v in ('python -c "import version;print(version.__version__)"') do set VER=%%v
 
 REM 3) 데스크톱 앱 exe 빌드 (창 모드, 콘솔 없음)
-echo [3/4] 앱 exe 빌드...
+echo [3/5] 앱 exe 빌드...
 pyinstaller --noconfirm --onefile --windowed --name ThefeelIntranet --icon app.ico ^
   --add-data "templates;templates" ^
   --add-data "static;static" ^
@@ -29,13 +29,19 @@ pyinstaller --noconfirm --onefile --windowed --name ThefeelIntranet --icon app.i
   --collect-all webview ^
   desktop.py || goto :err
 
-REM 4) 설치파일 빌드 (Inno Setup)
-echo [4/4] 설치파일 빌드...
+REM 4) 앱 exe 코드서명
+echo [4/5] 앱 exe 코드서명...
+powershell -ExecutionPolicy Bypass -File sign.ps1 "dist\ThefeelIntranet.exe" || goto :err
+
+REM 5) 설치파일 빌드 후 코드서명
+echo [5/5] 설치파일 빌드 + 서명...
 set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 %ISCC% installer.iss || goto :err
+for %%f in ("installer_out\*.exe") do powershell -ExecutionPolicy Bypass -File sign.ps1 "%%f" || goto :err
 
 echo.
-echo [완료] installer_out\ 폴더의 ThefeelIntranet-Setup-*.exe 를 배포하세요.
+echo [완료] installer_out\ 폴더의 서명된 설치파일을 배포하세요.
+echo  사내 PC에는 dist_cert\사내PC_인증서신뢰등록.bat 를 1회 실행(관리자)하세요.
 dir /b installer_out\*.exe
 pause
 exit /b 0

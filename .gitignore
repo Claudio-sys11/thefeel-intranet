@@ -5,6 +5,10 @@ installer_out/
 version.iss
 *.spec
 
+# 코드서명 개인키 (절대 공유 금지)
+*.pfx
+.cert_thumbprint
+
 # 런타임 데이터 (배포·공유 금지)
 intranet.db
 secret.key
