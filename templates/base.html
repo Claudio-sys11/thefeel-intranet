@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}더필 인트라넷{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if current_user %}
+<header class="topbar">
+  <div class="brand"><a href="{{ url_for('dashboard') }}">🏢 더필 인트라넷</a></div>
+  <nav class="topnav">
+    <a href="{{ url_for('dashboard') }}">홈</a>
+    <a href="{{ url_for('approval_list') }}">전자결재{% if nav_pending %} <span class="badge">{{ nav_pending }}</span>{% endif %}</a>
+    <a href="{{ url_for('mail_inbox') }}">메일{% if nav_unread %} <span class="badge">{{ nav_unread }}</span>{% endif %}</a>
+    <a href="{{ url_for('leave_my') }}">연차</a>
+    {% if current_user['role'] == 'admin' %}<a href="{{ url_for('admin_users') }}">직원관리</a>{% endif %}
+  </nav>
+  <div class="userbox">
+    <span>{{ current_user['name'] }} {{ current_user['position'] or '' }}</span>
+    <a href="{{ url_for('account') }}">내정보</a>
+    <a href="{{ url_for('logout') }}">로그아웃</a>
+  </div>
+</header>
+{% endif %}
+
+{% if current_user and update_info %}
+<div class="update-bar">
+  🔔 새 버전 <b>v{{ update_info.latest }}</b> 이 출시되었습니다. (현재 v{{ APP_VERSION }})
+  <a href="{{ url_for('update_page') }}">업데이트 보기 →</a>
+</div>
+{% endif %}
+
+<main class="{% if not current_user %}plain{% endif %}">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}내 정보 · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">내 정보</h2>
+<table class="kv card">
+  <tr><th>아이디</th><td>{{ current_user['username'] }}</td></tr>
+  <tr><th>이름</th><td>{{ current_user['name'] }}</td></tr>
+  <tr><th>부서 / 직급</th><td>{{ current_user['dept'] or '-' }} / {{ current_user['position'] or '-' }}</td></tr>
+  <tr><th>이메일</th><td>{{ current_user['email'] or '-' }}</td></tr>
+  <tr><th>입사일</th><td>{{ current_user['hire_date'] or '-' }}</td></tr>
+  <tr><th>연간 연차</th><td>{{ current_user['annual_leave'] }}일</td></tr>
+</table>
+
+<h3 class="sub-title">비밀번호 변경</h3>
+<form method="post" class="form narrow">
+  <div class="row"><label>현재 비밀번호</label><input type="password" name="current_pw" required></div>
+  <div class="row"><label>새 비밀번호</label><input type="password" name="new_pw" required></div>
+  <div class="actions"><button class="btn primary">변경</button></div>
+</form>
+{% endblock %}

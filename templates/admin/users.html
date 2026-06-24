@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}직원 관리 · 더필 인트라넷{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">직원 관리</h2>
+  <a href="{{ url_for('admin_user_new') }}" class="btn primary">＋ 직원 추가</a>
+</div>
+<table class="list">
+  <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>직급</th><th>권한</th><th>입사일</th><th>연차</th><th>상태</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr class="{{ '' if u['is_active'] else 'inactive' }}">
+      <td class="muted">{{ u['username'] }}</td>
+      <td>{{ u['name'] }}</td>
+      <td>{{ u['dept'] or '-' }}</td>
+      <td>{{ u['position'] or '-' }}</td>
+      <td>{% if u['role']=='admin' %}<span class="tag admin">관리자</span>{% else %}직원{% endif %}</td>
+      <td class="muted">{{ u['hire_date'] or '-' }}</td>
+      <td>{{ u['annual_leave'] }}</td>
+      <td>{{ '재직' if u['is_active'] else '비활성' }}</td>
+      <td><a href="{{ url_for('admin_user_edit', uid=u['id']) }}" class="btn small">수정</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

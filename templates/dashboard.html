@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}홈 · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">안녕하세요, {{ current_user['name'] }}님 👋</h2>
+<p class="muted">{{ current_user['dept'] or '' }} {{ current_user['position'] or '' }}</p>
+
+<div class="grid">
+  <section class="card">
+    <div class="card-head"><h3>📥 결재 대기</h3><a href="{{ url_for('approval_list') }}">전체보기</a></div>
+    {% if pending_docs %}
+    <table class="mini">
+      {% for d in pending_docs %}
+      <tr>
+        <td><span class="tag">{{ DOC_TYPES.get(d['doc_type'], d['doc_type']) }}</span></td>
+        <td><a href="{{ url_for('approval_detail', doc_id=d['id']) }}">{{ d['title'] }}</a></td>
+        <td class="r muted">{{ d['drafter_name'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="empty">결재할 문서가 없습니다.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h3>🌴 내 연차</h3><a href="{{ url_for('leave_my') }}">상세</a></div>
+    <div class="leave-stat">
+      <div><b>{{ leave.total }}</b><span>부여</span></div>
+      <div><b>{{ leave.used }}</b><span>사용</span></div>
+      <div class="hl"><b>{{ leave.remain }}</b><span>잔여</span></div>
+      <div><b>{{ leave.pending }}</b><span>상신중</span></div>
+    </div>
+    <a href="{{ url_for('approval_new') }}?type=leave" class="btn small">휴가 신청</a>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h3>📨 받은 메일</h3><a href="{{ url_for('mail_inbox') }}">전체보기</a></div>
+    {% if recent_mail %}
+    <table class="mini">
+      {% for m in recent_mail %}
+      <tr class="{{ 'unread' if not m['is_read'] }}">
+        <td><a href="{{ url_for('mail_view', msg_id=m['id']) }}">{{ m['subject'] }}</a></td>
+        <td class="r muted">{{ m['sender_name'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="empty">받은 메일이 없습니다.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h3>📝 내 기안 문서</h3><a href="{{ url_for('approval_list', tab='drafted') }}">전체보기</a></div>
+    {% if my_docs %}
+    <table class="mini">
+      {% for d in my_docs %}
+      <tr>
+        <td><a href="{{ url_for('approval_detail', doc_id=d['id']) }}">{{ d['title'] }}</a></td>
+        <td class="r">{% include 'approval/_status.html' %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="empty">기안한 문서가 없습니다.</p>{% endif %}
+  </section>
+</div>
+
+<div class="quick">
+  <a href="{{ url_for('approval_new') }}" class="btn primary">＋ 결재 상신</a>
+  <a href="{{ url_for('mail_compose') }}" class="btn">＋ 메일 쓰기</a>
+  <a href="{{ url_for('leave_calendar') }}" class="btn">📅 부서 휴가현황</a>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% set _s = d['status'] %}
+{% if _s == 'pending' %}<span class="st st-pending">진행중</span>
+{% elif _s == 'approved' %}<span class="st st-approved">승인완료</span>
+{% elif _s == 'rejected' %}<span class="st st-rejected">반려</span>
+{% else %}<span class="st st-canceled">회수</span>{% endif %}

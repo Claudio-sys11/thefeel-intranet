@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}결재 상신 · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">결재 상신</h2>
+
+<form method="post" class="form" id="docform">
+  <div class="row">
+    <label>문서 유형</label>
+    <select name="doc_type" id="doc_type" onchange="toggleLeave()">
+      {% for k, v in DOC_TYPES.items() %}
+      <option value="{{ k }}" {{ 'selected' if form.get('doc_type')==k or (request.args.get('type')==k and not form) }}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>제목</label>
+    <input type="text" name="title" value="{{ form.get('title','') }}" required>
+  </div>
+
+  <div id="leave-fields" class="leave-box" style="display:none">
+    <div class="row">
+      <label>휴가 종류</label>
+      <select name="leave_type">
+        {% for k, v in LEAVE_TYPES.items() %}<option value="{{ k }}">{{ v[0] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="row two">
+      <div><label>시작일</label><input type="date" name="start_date" value="{{ form.get('start_date','') }}"></div>
+      <div><label>종료일</label><input type="date" name="end_date" value="{{ form.get('end_date','') }}"></div>
+    </div>
+    <div class="row"><label>사유</label><input type="text" name="reason" value="{{ form.get('reason','') }}"></div>
+    <p class="hint">※ 반차는 0.5일로 계산되며 시작일 하루만 적용됩니다.</p>
+  </div>
+
+  <div class="row">
+    <label>내용</label>
+    <textarea name="content" rows="8">{{ form.get('content','') }}</textarea>
+  </div>
+
+  <div class="row">
+    <label>결재선 <small>(순서대로 선택, 위에서부터 결재 진행)</small></label>
+    <div id="approver-list"></div>
+    <select id="approver-pick">
+      <option value="">+ 결재자 추가</option>
+      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} ({{ u['dept'] or '-' }} {{ u['position'] or '' }})</option>{% endfor %}
+    </select>
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="btn primary">상신</button>
+    <a href="{{ url_for('approval_list') }}" class="btn">취소</a>
+  </div>
+</form>
+
+<script>
+const userNames = {};
+{% for u in users %}userNames[{{ u['id'] }}] = "{{ u['name'] }} ({{ u['dept'] or '-' }} {{ u['position'] or '' }})";{% endfor %}
+function toggleLeave(){
+  document.getElementById('leave-fields').style.display =
+    document.getElementById('doc_type').value === 'leave' ? 'block' : 'none';
+}
+document.getElementById('approver-pick').addEventListener('change', function(){
+  if(!this.value) return;
+  const id = this.value, name = userNames[id];
+  const list = document.getElementById('approver-list');
+  if([...list.querySelectorAll('input')].some(i=>i.value===id)){ this.value=''; return; }
+  const div = document.createElement('div');
+  div.className = 'approver-item';
+  div.innerHTML = '<span class="ord"></span><span>'+name+'</span>'+
+    '<input type="hidden" name="approvers" value="'+id+'">'+
+    '<button type="button" class="x" onclick="this.parentNode.remove();renumber()">✕</button>';
+  list.appendChild(div);
+  this.value=''; renumber();
+});
+function renumber(){
+  document.querySelectorAll('#approver-list .ord').forEach((el,i)=>el.textContent=(i+1)+'차');
+}
+toggleLeave();
+</script>
+{% endblock %}

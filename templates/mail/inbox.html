@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}메일 · 더필 인트라넷{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">사내 메일</h2>
+  <a href="{{ url_for('mail_compose') }}" class="btn primary">＋ 메일 쓰기</a>
+</div>
+
+<div class="tabs">
+  <a href="?box=inbox" class="{{ 'on' if box=='inbox' }}">받은 메일함</a>
+  <a href="?box=sent" class="{{ 'on' if box=='sent' }}">보낸 메일함</a>
+</div>
+
+{% if mails %}
+<table class="list">
+  <thead><tr>
+    <th>{{ '받는 사람' if box=='sent' else '보낸 사람' }}</th><th>제목</th><th>날짜</th>
+  </tr></thead>
+  <tbody>
+  {% for m in mails %}
+    <tr class="{{ 'unread' if box=='inbox' and not m['is_read'] }}">
+      <td class="muted">{{ m['to_names'] if box=='sent' else m['sender_name'] }}</td>
+      <td><a href="{{ url_for('mail_view', msg_id=m['id']) }}">
+        {% if box=='inbox' and not m['is_read'] %}<span class="dot"></span>{% endif %}{{ m['subject'] }}</a></td>
+      <td class="muted">{{ m['created_at'][:16] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty big">메일이 없습니다.</p>
+{% endif %}
+{% endblock %}

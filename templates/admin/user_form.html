@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ '직원 추가' if mode=='new' else '직원 수정' }} · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">{{ '직원 추가' if mode=='new' else '직원 정보 수정' }}</h2>
+<form method="post" class="form">
+  <div class="row two">
+    <div>
+      <label>아이디(사번)</label>
+      {% if mode=='new' %}<input type="text" name="username" value="{{ u['username'] if u['username'] is defined else '' }}" required>
+      {% else %}<input type="text" value="{{ u['username'] }}" disabled>{% endif %}
+    </div>
+    <div><label>이름</label><input type="text" name="name" value="{{ u['name'] if u['name'] is defined else '' }}" required></div>
+  </div>
+  <div class="row two">
+    <div><label>부서</label><input type="text" name="dept" value="{{ u['dept'] if u['dept'] is defined else '' }}"></div>
+    <div><label>직급</label><input type="text" name="position" value="{{ u['position'] if u['position'] is defined else '' }}"></div>
+  </div>
+  <div class="row two">
+    <div><label>이메일</label><input type="email" name="email" value="{{ u['email'] if u['email'] is defined else '' }}"></div>
+    <div><label>입사일</label><input type="date" name="hire_date" value="{{ u['hire_date'] if u['hire_date'] is defined else '' }}"></div>
+  </div>
+  <div class="row two">
+    <div>
+      <label>권한</label>
+      <select name="role">
+        <option value="employee" {{ 'selected' if u['role']=='employee' }}>직원</option>
+        <option value="admin" {{ 'selected' if u['role']=='admin' }}>관리자</option>
+      </select>
+    </div>
+    <div><label>연간 연차(일)</label><input type="number" step="0.5" name="annual_leave" value="{{ u['annual_leave'] if u['annual_leave'] is defined else 15 }}"></div>
+  </div>
+
+  {% if mode=='new' %}
+  <div class="row"><label>초기 비밀번호 <small>(미입력 시 1234)</small></label><input type="text" name="password" placeholder="1234"></div>
+  {% else %}
+  <div class="row two">
+    <label class="chk"><input type="checkbox" name="is_active" {{ 'checked' if u['is_active'] }}> 재직중(활성)</label>
+    <label class="chk"><input type="checkbox" name="reset_pw"> 비밀번호를 '1234'로 초기화</label>
+  </div>
+  {% endif %}
+
+  <div class="actions">
+    <button class="btn primary">저장</button>
+    <a href="{{ url_for('admin_users') }}" class="btn">취소</a>
+  </div>
+</form>
+{% endblock %}

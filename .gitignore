@@ -1,0 +1,15 @@
+# 빌드 산출물
+build/
+dist/
+*.spec
+
+# 런타임 데이터 (배포·공유 금지)
+intranet.db
+secret.key
+_update_new.exe
+_old_*.exe
+_apply_update.bat
+
+# 파이썬
+__pycache__/
+*.pyc

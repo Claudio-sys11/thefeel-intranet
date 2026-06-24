@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ doc['title'] }} · 전자결재{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">{{ doc['title'] }}</h2>
+  {% set d = doc %}{% include 'approval/_status.html' %}
+</div>
+
+<div class="doc-meta">
+  <span><b>문서번호</b> {{ doc['doc_number'] }}</span>
+  <span><b>유형</b> {{ DOC_TYPES.get(doc['doc_type'], doc['doc_type']) }}</span>
+  <span><b>기안자</b> {{ doc['drafter_name'] }} ({{ doc['drafter_dept'] or '-' }} {{ doc['drafter_pos'] or '' }})</span>
+  <span><b>상신일</b> {{ doc['created_at'][:16] }}</span>
+</div>
+
+<!-- 결재선 -->
+<div class="approval-track">
+  {% for l in lines %}
+  <div class="track-item {{ l['status'] }}">
+    <div class="ti-role">{{ loop.index }}차 결재</div>
+    <div class="ti-name">{{ l['name'] }}</div>
+    <div class="ti-pos muted">{{ l['position'] or '' }}</div>
+    <div class="ti-status">
+      {% if l['status']=='approved' %}✅ 승인{% elif l['status']=='rejected' %}❌ 반려
+      {% elif l['status']=='pending' %}⏳ 결재중{% else %}⌛ 대기{% endif %}
+    </div>
+    {% if l['acted_at'] %}<div class="ti-time muted">{{ l['acted_at'][:16] }}</div>{% endif %}
+    {% if l['comment'] %}<div class="ti-comment">"{{ l['comment'] }}"</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if leave %}
+<div class="doc-body leave-detail">
+  <h3>휴가 정보</h3>
+  <table class="kv">
+    <tr><th>종류</th><td>{{ LEAVE_TYPES.get(leave['leave_type'], [leave['leave_type']])[0] }}</td></tr>
+    <tr><th>기간</th><td>{{ leave['start_date'] }} ~ {{ leave['end_date'] }} ({{ leave['days'] }}일)</td></tr>
+    <tr><th>사유</th><td>{{ leave['reason'] or '-' }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+<div class="doc-body">
+  <h3>내용</h3>
+  <div class="content-box">{{ doc['content'] or '(내용 없음)' }}</div>
+</div>
+
+{% if can_act %}
+<form method="post" action="{{ url_for('approval_act', doc_id=doc['id']) }}" class="act-box">
+  <label>결재 의견</label>
+  <textarea name="comment" rows="2" placeholder="의견 (선택)"></textarea>
+  <div class="actions">
+    <button name="action" value="approve" class="btn primary">승인</button>
+    <button name="action" value="reject" class="btn danger">반려</button>
+  </div>
+</form>
+{% endif %}
+
+{% if doc['drafter_id'] == current_user['id'] and doc['status']=='pending' %}
+<form method="post" action="{{ url_for('approval_cancel', doc_id=doc['id']) }}" class="act-box"
+      onsubmit="return confirm('문서를 회수하시겠습니까?')">
+  <button class="btn">문서 회수</button>
+</form>
+{% endif %}
+
+<p><a href="{{ url_for('approval_list') }}" class="back">← 목록으로</a></p>
+{% endblock %}

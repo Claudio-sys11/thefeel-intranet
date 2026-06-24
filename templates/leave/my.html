@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}연차 관리 · 더필 인트라넷{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">내 연차 관리</h2>
+  <div>
+    <a href="{{ url_for('leave_calendar') }}" class="btn">📅 부서 휴가현황</a>
+    <a href="{{ url_for('approval_new') }}?type=leave" class="btn primary">＋ 휴가 신청</a>
+  </div>
+</div>
+
+<div class="leave-stat big">
+  <div><b>{{ leave.total }}</b><span>연간 부여</span></div>
+  <div><b>{{ leave.used }}</b><span>사용</span></div>
+  <div class="hl"><b>{{ leave.remain }}</b><span>잔여</span></div>
+  <div><b>{{ leave.pending }}</b><span>상신중</span></div>
+</div>
+
+<h3 class="sub-title">휴가 신청 내역</h3>
+{% if rows %}
+<table class="list">
+  <thead><tr><th>종류</th><th>기간</th><th>일수</th><th>사유</th><th>문서번호</th><th>상태</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ LEAVE_TYPES.get(r['leave_type'], [r['leave_type']])[0] }}</td>
+      <td>{{ r['start_date'] }}{% if r['end_date'] != r['start_date'] %} ~ {{ r['end_date'] }}{% endif %}</td>
+      <td>{{ r['days'] }}</td>
+      <td class="muted">{{ r['reason'] or '-' }}</td>
+      <td><a href="{{ url_for('approval_detail', doc_id=r['doc_id']) }}">{{ r['doc_number'] }}</a></td>
+      <td>{% set d = r %}{% include 'approval/_status.html' %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty big">휴가 신청 내역이 없습니다.</p>
+{% endif %}
+{% endblock %}

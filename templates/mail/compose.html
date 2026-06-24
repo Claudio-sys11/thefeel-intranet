@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}메일 쓰기 · 더필 인트라넷{% endblock %}
+{% block content %}
+<h2 class="page-title">메일 쓰기</h2>
+<form method="post" class="form">
+  <div class="row">
+    <label>받는 사람 <small>(여러 명 선택 가능, Ctrl/Shift)</small></label>
+    <select name="recipients" multiple size="6">
+      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="row"><label>제목</label><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div>
+  <div class="row"><label>내용</label><textarea name="body" rows="12">{{ form.get('body','') }}</textarea></div>
+  <div class="actions">
+    <button class="btn primary">보내기</button>
+    <a href="{{ url_for('mail_inbox') }}" class="btn">취소</a>
+  </div>
+</form>
+{% endblock %}
