@@ -32,9 +32,15 @@ def resource_path(rel):
     return os.path.join(getattr(sys, "_MEIPASS", BASE_DIR), rel)
 
 
-# 데이터(db, 설정)는 exe 옆에 영구 저장, 번들 리소스는 _MEIPASS 에서 로드
-APP_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE_DIR
-DB_PATH = os.path.join(APP_DIR, "intranet.db")
+# 데이터(db, 설정)는 설치 폴더와 분리된 영구 위치에 저장 → 업그레이드·재설치에도 보존.
+# 번들 리소스(templates/static/schema)는 _MEIPASS 에서 로드.
+if getattr(sys, "frozen", False):
+    DATA_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.dirname(sys.executable),
+                            "ThefeelIntranet")
+else:
+    DATA_DIR = BASE_DIR
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "intranet.db")
 
 app = Flask(__name__,
             template_folder=resource_path("templates"),
@@ -42,7 +48,7 @@ app = Flask(__name__,
 
 
 def _load_secret():
-    p = os.path.join(APP_DIR, "secret.key")
+    p = os.path.join(DATA_DIR, "secret.key")
     try:
         if os.path.exists(p):
             return open(p, "rb").read()

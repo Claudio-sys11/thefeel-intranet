@@ -5,8 +5,8 @@
 
 {% if applying %}
 <div class="card">
-  <p>⏳ 업데이트를 적용 중입니다. 잠시 후 프로그램이 자동으로 재시작됩니다.</p>
-  <p class="muted">이 창이 끊기면 정상입니다. 몇 초 뒤 새 버전이 실행되면 브라우저를 새로고침하세요.</p>
+  <p>⏳ 새 버전을 내려받아 설치 중입니다. 이전 버전은 자동으로 제거되고 새 버전이 실행됩니다.</p>
+  <p class="muted">잠시 프로그램이 닫혔다가 몇 초 뒤 새 버전 창이 자동으로 열립니다.</p>
 </div>
 {% elif info %}
 <div class="card">
@@ -18,11 +18,11 @@
   <div class="actions" style="margin-top:18px">
     {% if current_user['role'] == 'admin' %}
     <form method="post" action="{{ url_for('update_apply') }}"
-          onsubmit="return confirm('지금 업데이트를 적용하고 재시작할까요?')">
-      <button class="btn primary">자동 업데이트 적용 후 재시작</button>
+          onsubmit="return confirm('지금 새 버전을 설치하고 재시작할까요? (이전 버전 자동 제거)')">
+      <button class="btn primary">자동 업데이트 (설치 후 재시작)</button>
     </form>
     {% endif %}
-    <a href="{{ info.download }}" class="btn">.exe 직접 다운로드</a>
+    <a href="{{ info.download }}" class="btn">설치파일 직접 다운로드</a>
     <a href="{{ info.page }}" class="btn" target="_blank">릴리스 노트</a>
   </div>
   {% if current_user['role'] != 'admin' %}

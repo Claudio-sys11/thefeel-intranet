@@ -40,11 +40,18 @@ def check_update(timeout=5):
     latest = (data.get("tag_name") or "").lstrip("vV")
     if not latest or _vt(latest) <= _vt(__version__):
         return None
+    # 설치파일(Setup) 자산 우선, 없으면 임의의 .exe
+    assets = data.get("assets", [])
     download = None
-    for a in data.get("assets", []):
-        if a.get("name") == ASSET_NAME or a.get("name", "").endswith(".exe"):
+    for a in assets:
+        if a.get("name", "").lower().endswith(".exe") and "setup" in a.get("name", "").lower():
             download = a.get("browser_download_url")
             break
+    if not download:
+        for a in assets:
+            if a.get("name", "").endswith(".exe"):
+                download = a.get("browser_download_url")
+                break
     return {
         "latest": latest,
         "current": __version__,
@@ -66,31 +73,25 @@ def check_async():
 
 
 def apply_update(download_url):
-    """새 exe를 받아 실행 파일을 교체하고 재시작 (frozen 전용).
-    성공 시 현재 프로세스를 종료한다(반환 없음)."""
+    """새 설치파일(Setup.exe)을 받아 사일런트로 실행 → 이전 버전 자동 제거·업그레이드
+    후 앱을 재실행한다. 성공 시 현재 프로세스를 종료한다(반환 없음)."""
     if not getattr(sys, "frozen", False):
-        raise RuntimeError("개발 모드에서는 자동 교체를 지원하지 않습니다.")
-    exe_path = sys.executable
-    app_dir = os.path.dirname(exe_path)
-    new_exe = os.path.join(app_dir, "_update_new.exe")
+        raise RuntimeError("개발 모드에서는 자동 적용을 지원하지 않습니다.")
+    import tempfile
+    import subprocess
 
+    setup = os.path.join(tempfile.gettempdir(), "ThefeelIntranet-Setup.exe")
     req = urllib.request.Request(download_url, headers={"User-Agent": "thefeel-intranet"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(new_exe, "wb") as f:
+    with urllib.request.urlopen(req, timeout=180) as r, open(setup, "wb") as f:
         f.write(r.read())
 
-    bat = os.path.join(app_dir, "_apply_update.bat")
-    exe_name = os.path.basename(exe_path)
-    with open(bat, "w", encoding="cp949") as f:
-        f.write(
-            "@echo off\r\n"
-            "timeout /t 2 /nobreak >nul\r\n"
-            f'move /y "{exe_name}" "_old_{exe_name}" >nul 2>nul\r\n'
-            f'move /y "_update_new.exe" "{exe_name}" >nul\r\n'
-            f'del /q "_old_{exe_name}" >nul 2>nul\r\n'
-            f'start "" "{exe_name}"\r\n'
-            'del /q "_apply_update.bat" >nul 2>nul\r\n'
-        )
-    import subprocess
-    subprocess.Popen(["cmd", "/c", bat], cwd=app_dir,
-                     creationflags=0x00000008)  # DETACHED_PROCESS
+    # /VERYSILENT       : 무인 설치 (창 없음)
+    # /SUPPRESSMSGBOXES : 확인창 생략
+    # /CLOSEAPPLICATIONS: 실행 중인 앱을 닫고 진행
+    # 동일 AppId 이므로 이전 버전을 제거하고 같은 위치에 덮어쓴다.
+    # 설치 후 [Run] postinstall 로 새 버전이 자동 실행된다.
+    subprocess.Popen(
+        [setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CLOSEAPPLICATIONS", "/NORESTART"],
+        close_fds=True,
+    )
     os._exit(0)

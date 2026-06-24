@@ -1,6 +1,8 @@
 # 빌드 산출물
 build/
 dist/
+installer_out/
+version.iss
 *.spec
 
 # 런타임 데이터 (배포·공유 금지)
