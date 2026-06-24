@@ -26,7 +26,8 @@
     {% if can_users %}<a href="{{ url_for('admin_users') }}">직원관리</a>{% endif %}
   </nav>
   <div class="userbox">
-    <span>{{ current_user['name'] }} {{ current_user['position'] or '' }}</span>
+    <span class="me-info">{{ current_user['dept'] or '' }}{% if current_user['dept2'] %} · {{ current_user['dept2'] }}{% endif %}
+      {{ current_user['name'] }} {{ current_user['job_title'] or current_user['position'] or '' }}{% if current_user['emp_no'] %} ({{ current_user['emp_no'] }}){% endif %}</span>
     <a href="{{ url_for('account') }}">내정보</a>
     <a href="{{ url_for('logout') }}">로그아웃</a>
   </div>

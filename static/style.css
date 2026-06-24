@@ -25,6 +25,7 @@ a:hover{text-decoration:underline}
 .badge{background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700}
 .userbox{display:flex;align-items:center;gap:14px;color:#cfc6e6;font-size:13px}
 .userbox a{color:#fff}
+.me-info{color:#fff;font-weight:600}
 
 main{max-width:1360px;margin:0 auto;padding:28px 24px 60px}
 main.plain{max-width:none;padding:0}
