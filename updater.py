@@ -109,12 +109,12 @@ def _do_apply(download_url):
                 PROGRESS = {"state": "downloading", "percent": pct, "message": "새 버전 다운로드 중"}
         PROGRESS = {"state": "installing", "percent": 100, "message": "설치 중 · 곧 재시작됩니다"}
         time.sleep(1.0)  # 상태바가 100%/설치중을 표시할 시간
-        # /VERYSILENT 무인설치, /CLOSEAPPLICATIONS 실행 중 앱 종료, 동일 AppId → 이전 버전 제거 후 재실행
-        subprocess.Popen(
-            [setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CLOSEAPPLICATIONS", "/NORESTART"],
-            close_fds=True,
-        )
-        time.sleep(1.0)
+        # 실행 중인 exe(onefile 부트로더 포함)가 완전히 종료된 뒤 설치해야 교체가 됨.
+        # → 별도 cmd 로 3초 대기 후 사일런트 설치(동일 AppId: 이전 버전 제거 후 같은 위치 설치 + [Run] 재실행).
+        cmd = f'ping 127.0.0.1 -n 4 >nul & "{setup}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+        # DETACHED_PROCESS(0x8) | CREATE_NEW_PROCESS_GROUP(0x200) → 부모(앱) 종료 후에도 독립 실행
+        subprocess.Popen(["cmd", "/c", cmd], creationflags=0x00000208, close_fds=True)
+        time.sleep(0.8)
         os._exit(0)
     except Exception as e:
         PROGRESS = {"state": "error", "percent": 0, "message": f"업데이트 실패: {e}"}
