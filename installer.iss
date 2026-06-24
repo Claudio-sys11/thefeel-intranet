@@ -49,5 +49,18 @@ Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 Name: "{group}\{#MyAppName} 제거"; Filename: "{uninstallexe}"
 
 [Run]
+; 아이콘 캐시 새로고침 (바탕화면 바로가기 아이콘 즉시 반영)
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-ClearIconCache"; Flags: runhidden skipifdoesntexist
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden skipifdoesntexist
 ; 설치 완료 후 자동 실행 (사일런트 업데이트 포함)
 Filename: "{app}\{#MyAppExe}"; Description: "{#MyAppName} 실행"; Flags: nowait postinstall
+
+[Code]
+procedure SHChangeNotify(EventId: Integer; Flags: Cardinal; Item1, Item2: Cardinal);
+  external 'SHChangeNotify@shell32.dll stdcall';
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    SHChangeNotify($08000000, $0000, 0, 0);  // SHCNE_ASSOCCHANGED → 쉘 아이콘 갱신
+end;
