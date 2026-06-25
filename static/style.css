@@ -109,6 +109,13 @@ td.dt .dt-time{font-size:10.5px;color:#94a3b8}
   border-radius:12px;background:#eceef2;color:#1e1b2e;font-size:14px;font-weight:600;font-family:inherit}
 .leave-input:focus{outline:none;border-color:var(--primary);background:#fff;
   box-shadow:0 0 0 3px rgba(91,33,182,.12)}
+/* 연차 상세: 휴가 기록 추가 폼 */
+.leave-add{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.leave-add label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:0 0 4px}
+.leave-add input{padding:9px 11px;border:1px solid #c7cdd9;border-radius:10px;font-size:14px;font-family:inherit}
+.leave-add .grow{flex:1;min-width:160px}
+.leave-add .grow input{width:100%}
+.btn.small.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 table.list .rowchk,#chkall{width:17px;height:17px;cursor:pointer}
 .ver-check{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
 .ver-check.ok b{color:var(--primary)}

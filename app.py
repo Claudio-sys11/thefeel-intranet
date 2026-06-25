@@ -401,6 +401,8 @@ def init_db():
         db.execute("UPDATE users SET approved_at=created_at WHERE approved_at IS NULL AND status='active'")
     if "last_login" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN last_login TEXT")   # 최근 접속(로그인) 일시
+    if "used_manual" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN used_manual REAL NOT NULL DEFAULT 0")  # 연차 사용(수기 입력)
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -974,19 +976,29 @@ def mail_delete(msg_id):
 
 # ---------------------------------------------------------------- leave
 def leave_summary(uid):
-    """연차 부여/사용/잔여 계산 (승인 완료된 연차성 휴가만 차감)"""
+    """연차 부여/사용/잔여 계산.
+    사용 = 수기입력(used_manual) + 승인된 휴가신청(leave_requests) + 결재완료된 연차관리 기록(leave_records)
+    상신중 = 결재 대기중인 휴가신청 + 연차관리 기록"""
     db = get_db()
-    u = db.execute("SELECT annual_leave FROM users WHERE id=?", (uid,)).fetchone()
+    u = db.execute("SELECT annual_leave, used_manual FROM users WHERE id=?", (uid,)).fetchone()
     total = u["annual_leave"] if u else 0
-    used = db.execute("""
+    manual = (u["used_manual"] if u and u["used_manual"] is not None else 0)
+    used_req = db.execute("""
         SELECT COALESCE(SUM(lr.days),0) FROM leave_requests lr
         JOIN documents d ON d.id=lr.doc_id
         WHERE lr.user_id=? AND d.status='approved' AND lr.leave_type!='sick'""", (uid,)).fetchone()[0]
-    pending = db.execute("""
+    pending_req = db.execute("""
         SELECT COALESCE(SUM(lr.days),0) FROM leave_requests lr
         JOIN documents d ON d.id=lr.doc_id
         WHERE lr.user_id=? AND d.status='pending' AND lr.leave_type!='sick'""", (uid,)).fetchone()[0]
-    return {"total": total, "used": used, "pending": pending, "remain": total - used}
+    used_rec = db.execute(
+        "SELECT COALESCE(SUM(days),0) FROM leave_records WHERE user_id=? AND status='approved'", (uid,)).fetchone()[0]
+    pending_rec = db.execute(
+        "SELECT COALESCE(SUM(days),0) FROM leave_records WHERE user_id=? AND status='pending'", (uid,)).fetchone()[0]
+    used = manual + used_req + used_rec
+    pending = pending_req + pending_rec
+    return {"total": total, "manual": manual, "used": used, "pending": pending,
+            "remain": total - used}
 
 
 @app.route("/leave")
@@ -1033,18 +1045,90 @@ def leave_admin_set():
     uid = request.form.get("uid")
     try:
         val = float(request.form.get("annual_leave"))
-        if val < 0:
+        used = float(request.form.get("used_manual") or 0)
+        if val < 0 or used < 0:
             raise ValueError
     except (TypeError, ValueError):
-        flash("연차 일수는 0 이상의 숫자여야 합니다.", "error")
-        return redirect(url_for("leave_admin"))
+        flash("연차/사용 일수는 0 이상의 숫자여야 합니다.", "error")
+        return redirect(request.referrer or url_for("leave_admin"))
     u = db.execute("SELECT username, name FROM users WHERE id=?", (uid,)).fetchone()
     if not u:
         abort(404)
-    db.execute("UPDATE users SET annual_leave=? WHERE id=?", (val, uid))
+    db.execute("UPDATE users SET annual_leave=?, used_manual=? WHERE id=?", (val, used, uid))
     db.commit()
-    flash(f"{u['name']}({u['username']}) 연차를 {val}일로 설정했습니다.", "ok")
-    return redirect(url_for("leave_admin"))
+    flash(f"{u['name']}({u['username']}) 연차 부여 {val}일 · 사용 {used}일로 설정했습니다.", "ok")
+    return redirect(request.referrer or url_for("leave_admin"))
+
+
+@app.route("/leave/admin/<int:uid>")
+@leave_admin_required
+def leave_admin_detail(uid):
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    # 연차관리 직접 기록(상신중/결재완료)
+    records = db.execute(
+        "SELECT * FROM leave_records WHERE user_id=? ORDER BY COALESCE(start_date,created_at) DESC, id DESC",
+        (uid,)).fetchall()
+    # 직원이 올린 휴가신청(전자결재) 기록도 함께 표시(읽기 전용)
+    reqs = db.execute("""
+        SELECT lr.start_date, lr.end_date, lr.days, lr.reason, lr.leave_type,
+               d.status AS doc_status, d.doc_number
+        FROM leave_requests lr JOIN documents d ON d.id=lr.doc_id
+        WHERE lr.user_id=? ORDER BY lr.start_date DESC""", (uid,)).fetchall()
+    return render_template("leave/admin_detail.html", u=u, records=records, reqs=reqs,
+                           leave=leave_summary(uid))
+
+
+@app.route("/leave/admin/<int:uid>/add", methods=["POST"])
+@leave_admin_required
+def leave_admin_add(uid):
+    db = get_db()
+    u = db.execute("SELECT id FROM users WHERE id=?", (uid,)).fetchone()
+    if not u:
+        abort(404)
+    start = (request.form.get("start_date") or "").strip()
+    end = (request.form.get("end_date") or "").strip() or start
+    reason = (request.form.get("reason") or "").strip()
+    try:
+        days = float(request.form.get("days") or 0)
+        if days <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        flash("사용 일수는 0보다 큰 숫자여야 합니다.", "error")
+        return redirect(url_for("leave_admin_detail", uid=uid))
+    if not start:
+        flash("시작일을 입력하세요.", "error")
+        return redirect(url_for("leave_admin_detail", uid=uid))
+    db.execute("""INSERT INTO leave_records (user_id, start_date, end_date, days, reason, status)
+                  VALUES (?,?,?,?,?,'pending')""", (uid, start, end, days, reason))
+    db.commit()
+    flash("휴가 기록을 상신했습니다. (상신중)", "ok")
+    return redirect(url_for("leave_admin_detail", uid=uid))
+
+
+@app.route("/leave/admin/record/<int:rid>/<action>", methods=["POST"])
+@leave_admin_required
+def leave_admin_record(rid, action):
+    db = get_db()
+    rec = db.execute("SELECT * FROM leave_records WHERE id=?", (rid,)).fetchone()
+    if not rec:
+        abort(404)
+    uid = rec["user_id"]
+    if action == "approve":
+        db.execute("UPDATE leave_records SET status='approved', approved_at=datetime('now','localtime') WHERE id=?", (rid,))
+        flash("결재 완료 처리했습니다. (결재완료)", "ok")
+    elif action == "reopen":
+        db.execute("UPDATE leave_records SET status='pending', approved_at=NULL WHERE id=?", (rid,))
+        flash("상신중으로 되돌렸습니다.", "ok")
+    elif action == "delete":
+        db.execute("DELETE FROM leave_records WHERE id=?", (rid,))
+        flash("기록을 삭제했습니다.", "ok")
+    else:
+        abort(400)
+    db.commit()
+    return redirect(url_for("leave_admin_detail", uid=uid))
 
 
 # ---------------------------------------------------------------- admin

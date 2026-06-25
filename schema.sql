@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 연차관리 직접 기록 (관리자가 상세에서 날짜로 입력 → 상신중/결재완료)
+CREATE TABLE IF NOT EXISTS leave_records (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    start_date TEXT,                              -- 시작일 (YYYY-MM-DD)
+    end_date   TEXT,                              -- 종료일 (YYYY-MM-DD)
+    days       REAL    NOT NULL DEFAULT 0,        -- 사용 일수
+    reason     TEXT,                              -- 사유
+    status     TEXT    NOT NULL DEFAULT 'pending',-- pending(상신중) | approved(결재완료)
+    created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    approved_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- 사내 메일 / 쪽지
 CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,

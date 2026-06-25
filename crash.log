@@ -1,0 +1,8 @@
+
+===== 2026-06-25 20:26:14 =====
+[uncaught:main]
+Traceback (most recent call last):
+  File "<string>", line 32, in <module>
+    assert rec and rec['status']=='pending' and rec['days']==2 and rec['start_date']=='2026-07-01', '기록 추가 실패'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 기록 추가 실패

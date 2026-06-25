@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}연차 상세 · {{ u['name'] }} · The Feel Intranet{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">연차 상세 — {{ u['name'] }}
+    <span class="muted" style="font-size:14px;font-weight:500">
+      {{ u['dept'] or '' }}{% if u['position'] %} · {{ u['position'] }}{% endif %}
+      {% if u['emp_no'] %}({{ u['emp_no'] }}){% endif %}
+    </span>
+  </h2>
+  <a href="{{ url_for('leave_admin') }}" class="btn">← 연차 관리로</a>
+</div>
+
+<div class="leave-stat big" style="margin-bottom:18px">
+  <div><b>{{ leave.total }}</b><span>부여</span></div>
+  <div><b>{{ leave.used }}</b><span>사용</span></div>
+  <div><b>{{ leave.pending }}</b><span>상신중</span></div>
+  <div class="hl"><b>{{ leave.remain }}</b><span>잔여</span></div>
+</div>
+
+<div class="content-box" style="margin-bottom:18px">
+  <h3 style="margin:0 0 12px">휴가 기록 추가 (날짜 입력 → 상신)</h3>
+  <form method="post" action="{{ url_for('leave_admin_add', uid=u['id']) }}" class="leave-add">
+    <div><label>시작일</label><input type="date" name="start_date" required></div>
+    <div><label>종료일</label><input type="date" name="end_date"></div>
+    <div><label>사용 일수</label><input type="number" step="0.5" min="0.5" name="days" placeholder="예: 1" required></div>
+    <div class="grow"><label>사유</label><input type="text" name="reason" placeholder="예: 개인 연차"></div>
+    <div><label>&nbsp;</label><button class="btn primary">상신</button></div>
+  </form>
+  <p class="hint" style="margin:10px 0 0">※ 상신하면 <b>상신중</b> 상태로 등록됩니다. 아래에서 <b>결재완료</b>로 처리하면 사용에 반영(잔여 차감)됩니다.</p>
+</div>
+
+<h3 style="margin:18px 0 8px">연차관리 기록 ({{ records|length }}건)</h3>
+{% if records %}
+<table class="list center">
+  <thead><tr><th>시작일</th><th>종료일</th><th>일수</th><th>사유</th><th>상태</th><th>등록일</th><th>관리</th></tr></thead>
+  <tbody>
+  {% for rec in records %}
+    <tr>
+      <td>{{ rec['start_date'] or '-' }}</td>
+      <td>{{ rec['end_date'] or '-' }}</td>
+      <td><b>{{ rec['days'] }}</b></td>
+      <td>{{ rec['reason'] or '-' }}</td>
+      <td>
+        {% if rec['status']=='approved' %}<span class="st st-approved">결재완료</span>
+        {% else %}<span class="st st-pending">상신중</span>{% endif %}
+      </td>
+      <td class="muted">{{ (rec['created_at'] or '')[:10] }}</td>
+      <td class="row-actions">
+        {% if rec['status']=='approved' %}
+          <form method="post" action="{{ url_for('leave_admin_record', rid=rec['id'], action='reopen') }}" style="margin:0">
+            <button class="btn small">상신중으로</button></form>
+        {% else %}
+          <form method="post" action="{{ url_for('leave_admin_record', rid=rec['id'], action='approve') }}" style="margin:0">
+            <button class="btn small primary">결재완료</button></form>
+        {% endif %}
+        <form method="post" action="{{ url_for('leave_admin_record', rid=rec['id'], action='delete') }}" style="margin:0"
+              onsubmit="return confirm('이 기록을 삭제할까요?')">
+          <button class="btn small danger">삭제</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">등록된 연차관리 기록이 없습니다. 위에서 날짜를 입력해 상신하세요.</p>
+{% endif %}
+
+{% if reqs %}
+<h3 style="margin:22px 0 8px">직원 휴가신청(전자결재) 기록 ({{ reqs|length }}건)</h3>
+<table class="list center">
+  <thead><tr><th>시작일</th><th>종료일</th><th>일수</th><th>구분</th><th>사유</th><th>결재 상태</th><th>문서번호</th></tr></thead>
+  <tbody>
+  {% for q in reqs %}
+    <tr>
+      <td>{{ q['start_date'] }}</td>
+      <td>{{ q['end_date'] }}</td>
+      <td>{{ q['days'] }}</td>
+      <td>{{ {'annual':'연차','half_am':'오전반차','half_pm':'오후반차','sick':'병가'}.get(q['leave_type'], q['leave_type']) }}</td>
+      <td>{{ q['reason'] or '-' }}</td>
+      <td>
+        {% if q['doc_status']=='approved' %}<span class="st st-approved">결재완료</span>
+        {% elif q['doc_status']=='pending' %}<span class="st st-pending">상신중</span>
+        {% elif q['doc_status']=='rejected' %}<span class="st st-rejected">반려</span>
+        {% else %}<span class="st st-canceled">취소</span>{% endif %}
+      </td>
+      <td class="muted">{{ q['doc_number'] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

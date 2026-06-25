@@ -4,12 +4,13 @@
 <div class="page-head">
   <h2 class="page-title">연차 관리</h2>
 </div>
-<p class="muted">직원관리 명단을 불러와 직원별 연차를 부여·수정합니다. 사용·잔여는 승인된 휴가 기준으로 자동 계산됩니다.</p>
+<p class="muted">직원관리 명단을 불러와 직원별 연차를 부여·수정합니다. '사용'을 직접 입력하거나, <b>상세</b>에서 날짜별로 휴가를 기록하고 결재(상신중/결재완료)할 수 있습니다.</p>
 
 {% if rows %}
+<div class="table-scroll">
 <table class="list center wide">
   <thead>
-    <tr><th>사번</th><th>이름</th><th>직급</th><th>부서</th><th>직책</th><th>연차 부여(일)</th><th>사용</th><th>상신중</th><th>잔여</th><th>저장</th></tr>
+    <tr><th>사번</th><th>이름</th><th>직급</th><th>부서</th><th>직책</th><th>연차 부여(일)</th><th>사용(일)</th><th>상신중</th><th>잔여</th><th>저장</th><th>상세</th></tr>
   </thead>
   <tbody>
   {% for r in rows %}
@@ -22,18 +23,22 @@
       <td>
         <form id="lf{{ r.u['id'] }}" method="post" action="{{ url_for('leave_admin_set') }}" style="margin:0">
           <input type="hidden" name="uid" value="{{ r.u['id'] }}">
-          <input type="number" step="0.5" min="0" name="annual_leave" value="{{ r.leave.total }}" class="leave-input">
         </form>
+        <input type="number" step="0.5" min="0" name="annual_leave" form="lf{{ r.u['id'] }}" value="{{ r.leave.total }}" class="leave-input">
       </td>
-      <td>{{ r.leave.used }}</td>
+      <td>
+        <input type="number" step="0.5" min="0" name="used_manual" form="lf{{ r.u['id'] }}" value="{{ r.u['used_manual'] or 0 }}" class="leave-input" title="수기 사용 일수 (상세 기록과 합산되어 잔여에 반영)">
+      </td>
       <td class="muted">{{ r.leave.pending }}</td>
       <td><b style="color:var(--primary-d)">{{ r.leave.remain }}</b></td>
       <td><button class="btn small primary" form="lf{{ r.u['id'] }}">저장</button></td>
+      <td><a href="{{ url_for('leave_admin_detail', uid=r.u['id']) }}" class="btn small">상세</a></td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
-<p class="hint" style="margin-top:12px">※ '연차 부여' 값을 바꾸고 행의 <b>저장</b>을 누르면 해당 직원의 연간 연차가 변경됩니다.</p>
+</div>
+<p class="hint" style="margin-top:12px">※ '연차 부여'·'사용' 값을 바꾸고 행의 <b>저장</b>을 누르면 반영됩니다. 잔여 = 부여 − (수기 사용 + 결재완료된 상세 기록).</p>
 {% else %}
 <p class="empty big">재직중인 직원이 없습니다.</p>
 {% endif %}
