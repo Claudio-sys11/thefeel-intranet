@@ -95,6 +95,13 @@ table.list .rowchk,#chkall{width:17px;height:17px;cursor:pointer}
 .ver-check{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
 .ver-check.ok b{color:var(--primary)}
 .ver-check.has{color:#b45309;font-weight:600}
+.upd-btn{margin-left:6px;border:0;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:800;
+  cursor:pointer;background:linear-gradient(135deg,#6d28d9,#c026d3);color:#fff}
+.upd-btn:hover{filter:brightness(1.08)}
+.upd-prog{display:inline-flex;align-items:center;gap:8px;margin-top:10px}
+.upd-track{position:relative;background:#e6e2f0;border-radius:999px;height:8px;width:150px;overflow:hidden}
+.upd-fill{height:8px;width:0;background:linear-gradient(90deg,#6d28d9,#c026d3);transition:width .3s}
+.upd-pct{font-size:11px;font-weight:800;color:#5b21b6;min-width:46px}
 .login-logo.sm{width:46px;height:46px;margin-bottom:8px}
 .wordmark.sm{font-size:28px}
 .signup-card{padding:26px 30px}

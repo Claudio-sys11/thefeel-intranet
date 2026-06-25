@@ -1110,6 +1110,11 @@ def update_page():
     return render_template("update.html", info=updater.UPDATE_INFO)
 
 
+def _is_local_request():
+    """이 요청이 서버 PC 자기 자신(로컬)에서 온 것인지 — 로그인 팝업 업데이트는 로컬만 허용"""
+    return request.remote_addr in ("127.0.0.1", "::1", "localhost")
+
+
 @app.route("/update/public_status")
 def update_public_status():
     """로그인 전(시작 팝업)에서도 버전 확인 가능한 공개 엔드포인트"""
@@ -1119,6 +1124,8 @@ def update_public_status():
         "current": version.__version__,
         "latest": info["latest"] if info else version.__version__,
         "available": bool(info),
+        "is_local": _is_local_request(),          # 서버 PC 자기 자신에서 접속했는지
+        "frozen": getattr(sys, "frozen", False),
     })
 
 
@@ -1138,14 +1145,16 @@ def update_status():
 
 
 @app.route("/update/progress")
-@login_required
 def update_progress():
     return jsonify(updater.PROGRESS)
 
 
 @app.route("/update/apply", methods=["POST"])
-@admin_required
 def update_apply():
+    # 로그인 팝업/상태바에서 호출. 단, 이 서버 PC 자기 자신(로컬)에서만 허용
+    # (원격 직원 PC가 서버 앱을 업데이트/재시작시키는 것 방지)
+    if not _is_local_request():
+        return jsonify({"ok": False, "error": "이 PC(서버)에서만 업데이트할 수 있습니다."})
     info = updater.UPDATE_INFO
     if not info:
         return jsonify({"ok": False, "error": "적용할 업데이트가 없습니다."})

@@ -48,15 +48,42 @@ function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.clos
   });
 })();
 
-// 최신 버전 체크
+// 최신 버전 체크 + 로그인 팝업에서 바로 업데이트
 (function(){
   var el=document.getElementById('ver-check');
   function check(){
     fetch('/update/public_status').then(function(r){return r.json()}).then(function(s){
       if(!s.checked){ el.textContent='최신 버전 확인 중…'; setTimeout(check,1500); return; }
-      if(s.available){ el.className='ver-check has'; el.innerHTML='🆕 새 버전 <b>v'+s.latest+'</b> 사용 가능 · 로그인 후 업데이트'; }
+      if(s.available){
+        el.className='ver-check has';
+        var btn = (s.is_local && s.frozen)
+          ? ' <button type="button" id="upd-btn" class="upd-btn">지금 업데이트</button>'
+          : '';
+        el.innerHTML='🆕 새 버전 <b>v'+s.latest+'</b> 사용 가능'+btn+
+          '<div id="upd-prog" class="upd-prog" style="display:none">'+
+          '<div class="upd-track"><div id="upd-fill" class="upd-fill"></div></div>'+
+          '<span id="upd-pct">0%</span></div>';
+        var b=document.getElementById('upd-btn'); if(b) b.addEventListener('click', startUpdate);
+      }
       else{ el.className='ver-check ok'; el.innerHTML='✓ 최신 버전 <b>v'+s.current+'</b>'; }
     }).catch(function(){ el.textContent='버전 확인 실패'; });
+  }
+  function startUpdate(){
+    if(!confirm('지금 새 버전을 설치하고 재시작할까요?\n(이전 버전 자동 제거 · 데이터 보존)')) return;
+    var b=document.getElementById('upd-btn'); if(b){ b.disabled=true; b.style.display='none'; }
+    var pr=document.getElementById('upd-prog'); if(pr) pr.style.display='inline-flex';
+    fetch('/update/apply',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+      if(d.ok){ poll(); } else { el.innerHTML='⚠ '+(d.error||'업데이트 불가'); }
+    }).catch(function(){ poll(); });
+  }
+  function poll(){
+    fetch('/update/progress').then(function(r){return r.json()}).then(function(p){
+      var fill=document.getElementById('upd-fill'), pct=document.getElementById('upd-pct');
+      if(p.state==='downloading'){ if(fill)fill.style.width=p.percent+'%'; if(pct)pct.textContent=p.percent+'%'; setTimeout(poll,400); }
+      else if(p.state==='installing'){ if(fill)fill.style.width='100%'; if(pct)pct.textContent='설치 중'; setTimeout(poll,800); }
+      else if(p.state==='error'){ el.innerHTML='⚠ '+(p.message||'업데이트 실패'); }
+      else { setTimeout(poll,600); }
+    }).catch(function(){ var pct=document.getElementById('upd-pct'); if(pct)pct.textContent='재시작 중…'; });
   }
   check();
 })();
