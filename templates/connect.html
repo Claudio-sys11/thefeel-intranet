@@ -11,14 +11,22 @@
       <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="login-logo sm">
       <h1 class="wordmark" style="font-size:22px">서버 연결 설정</h1>
       <p class="sub">현재 모드:
-        {% if not cur or cur=='self' %}이 PC가 서버{% else %}{{ cur }} 에 접속{% endif %}
+        {% if not cur or cur=='self' %}<b style="color:#16a34a">이 PC가 서버 (관리자 PC)</b>{% else %}{{ cur }} 에 접속{% endif %}
       </p>
+
+      {% if ip_changed %}
+      <div class="ipchg">⚠ 이 서버 PC의 IP가 <b>{{ ip_changed[0] }}</b> → <b>{{ ip_changed[1] }}</b> 로 변경되었습니다.<br>
+        직원 PC는 다음 실행 시 <b>자동으로</b> 새 주소를 찾으니 별도 수정은 필요 없습니다.</div>
+      {% endif %}
+
+      <div class="ver-check ok" style="margin-top:8px">현재 서버 주소(직원에게 알려줄 주소): <b>{{ lan_ip }}:5000</b></div>
+
       <form method="post">
-        <button type="submit" name="mode" value="self" class="btn primary full">이 PC를 서버로 사용 (관리자 PC)</button>
-        <div class="ver-check ok" style="margin-top:8px">이 PC 주소: <b>{{ lan_ip }}:5000</b> · 직원에게 알려주세요</div>
-        <div class="divider2">또는</div>
-        <label>서버(관리자 PC) 주소</label>
-        <input type="text" name="server" placeholder="예: 192.168.0.74">
+        <button type="submit" name="mode" value="self" class="btn primary full">✔ 이 PC를 서버로 고정 (관리자 PC)</button>
+        <p class="hint" style="text-align:center;margin:8px 0 0">직원 PC는 서버를 <b>자동 검색</b>하므로 IP가 바뀌어도 다시 찾습니다.</p>
+        <div class="divider2">직원 PC로 쓸 때만</div>
+        <label>서버(관리자 PC) 주소 <small>(보통 비워두면 자동 검색)</small></label>
+        <input type="text" name="server" placeholder="예: 192.168.0.74 (자동 검색되면 입력 불필요)">
         <button type="submit" name="mode" value="client" class="btn full" style="margin-top:10px;background:#475569;color:#fff;border:0">이 주소의 서버에 접속 (직원 PC)</button>
       </form>
       <p class="signup-cta"><a href="{{ url_for('login') }}">← 로그인으로 돌아가기</a></p>

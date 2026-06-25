@@ -71,6 +71,17 @@ class ConfigApi:
             appmod.write_server_cfg(url)
             appmod.relaunch_app()
 
+    def auto_detect(self):
+        """LAN에서 서버를 자동 탐색해 'host:port' 문자열로 반환(JS 입력칸 채우기). 없으면 ''"""
+        try:
+            url = appmod.discover_server(timeout=2.5)
+            if url:
+                p = urllib.parse.urlparse(url)
+                return f"{p.hostname}:{p.port or PORT}"
+        except Exception:
+            pass
+        return ""
+
 
 # ---------------------------------------------------------------- 서버
 class ServerThread(threading.Thread):
@@ -85,6 +96,20 @@ class ServerThread(threading.Thread):
 def start_server():
     appmod.init_db()
     appmod.updater.check_async()
+    # 서버 IP 변경 감지 + 기록 (서버 연결 설정 화면에서 안내)
+    try:
+        cur_ip = appmod.lan_ip()
+        prev_ip = appmod.read_last_server_ip()
+        if prev_ip and prev_ip != cur_ip:
+            appmod.SERVER_IP_CHANGED = (prev_ip, cur_ip)
+        appmod.write_last_server_ip(cur_ip)
+    except Exception:
+        pass
+    # 직원 PC가 IP 없이 서버를 자동으로 찾도록 UDP 응답 데몬 시작
+    try:
+        appmod.start_discovery_responder()
+    except Exception:
+        pass
     try:
         ServerThread().start()
     except OSError:
@@ -153,6 +178,8 @@ input{width:100%;padding:11px;border:1px solid #e6e2f0;border-radius:10px;font-s
 .divider{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:18px 0}
 .divider::before,.divider::after{content:"";flex:1;height:1px;background:#e6e2f0}
 .ipbox{background:#f4f2f9;border-radius:8px;padding:8px 10px;font-size:12px;color:#6b6480;margin-top:8px;text-align:center}
+.find{background:#0ea5e9;margin-top:6px}
+.srvrow{display:flex;gap:8px}.srvrow input{flex:1}
 b{color:#5b21b6}
 </style></head><body>
 <div class="card">
@@ -161,16 +188,27 @@ b{color:#5b21b6}
   __ERR__
   <button class="primary" onclick="self_()">이 PC를 서버로 사용 (관리자 PC)</button>
   <div class="ipbox">이 PC 주소: <b>__IP__:5000</b><br>직원에게 이 주소를 알려주세요</div>
-  <div class="divider">또는</div>
+  <div class="divider">직원 PC는 아래</div>
+  <button class="find" id="findbtn" onclick="findSrv()">🔍 서버 자동 검색 (권장)</button>
   <label>서버(관리자 PC) 주소</label>
-  <input id="srv" value="__VAL__" placeholder="예: 192.168.0.74">
-  <button class="alt" onclick="conn()">이 주소의 서버에 접속 (직원 PC)</button>
+  <input id="srv" value="__VAL__" placeholder="자동 검색하거나 직접 입력 (예: 192.168.0.74)">
+  <button class="alt" onclick="conn()">이 주소의 서버에 접속</button>
 </div>
 <script>
 function self_(){ try{ pywebview.api.use_self(); }catch(e){} }
 function conn(){ var v=document.getElementById('srv').value.trim();
-  if(!v){ alert('서버(관리자 PC) IP 주소를 입력하세요'); return; }
+  if(!v){ alert('서버 주소를 입력하거나 "서버 자동 검색"을 누르세요'); return; }
   try{ pywebview.api.connect(v); }catch(e){} }
+function findSrv(){
+  var b=document.getElementById('findbtn'); b.textContent='🔍 검색 중...'; b.disabled=true;
+  try{
+    pywebview.api.auto_detect().then(function(addr){
+      b.disabled=false;
+      if(addr){ document.getElementById('srv').value=addr; b.textContent='✅ 서버 발견: '+addr+' (접속 누르세요)'; }
+      else{ b.textContent='🔍 서버 자동 검색 (권장)'; alert('서버를 찾지 못했습니다.\\n서버 PC가 켜져 있고 같은 네트워크인지 확인 후 다시 시도하거나, 주소를 직접 입력하세요.'); }
+    });
+  }catch(e){ b.disabled=false; b.textContent='🔍 서버 자동 검색 (권장)'; }
+}
 </script></body></html>"""
 
 
@@ -197,15 +235,23 @@ def _run_server_mode():
 
 def _run_client_mode(url):
     global BASE
-    BASE = url
     appmod.updater.check_async()
     try:
-        if reachable(BASE):
-            launch_windows()
-        else:
-            show_config(error=f"서버에 연결할 수 없습니다:\n{BASE}\n서버 PC가 켜져 있고 방화벽(5000)이 열려 있는지 확인하세요.",
-                        value=urllib.parse.urlparse(BASE).hostname or "")
+        # 1) 저장된 주소로 바로 연결
+        if url and reachable(url):
+            BASE = url; launch_windows(); return
+        # 2) 실패 → 서버 IP가 바뀌었을 수 있음. LAN에서 자동 재탐색.
+        found = appmod.discover_server(timeout=2.5)
+        if found and reachable(found):
+            if found != url:
+                appmod.write_server_cfg(found)     # 바뀐 서버 IP 자동 반영
+            BASE = found; launch_windows(); return
+        # 3) 그래도 못 찾으면 설정창 (자동 검색 버튼 포함)
+        BASE = url or found or f"http://127.0.0.1:{PORT}"
+        show_config(error="서버에 연결할 수 없습니다.\n서버 PC가 켜져 있고 같은 네트워크인지 확인 후\n아래 '서버 자동 검색'을 눌러보세요.",
+                    value=(urllib.parse.urlparse(url).hostname if url else ""))
     except Exception:
+        BASE = url or f"http://127.0.0.1:{PORT}"
         webbrowser.open(BASE); threading.Event().wait()
 
 

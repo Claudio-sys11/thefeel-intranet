@@ -19,7 +19,11 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo [완료] 5000 포트 인바운드가 허용되었습니다.
+echo [완료] 5000 포트(TCP) 인바운드가 허용되었습니다.
+REM 서버 자동 검색용 UDP 50505 (직원 PC가 서버를 자동으로 찾게 함)
+netsh advfirewall firewall delete rule name="The Feel Intranet Discovery 50505" >nul 2>&1
+netsh advfirewall firewall add rule name="The Feel Intranet Discovery 50505" dir=in action=allow protocol=UDP localport=50505 profile=any >nul
+echo [완료] 50505 포트(UDP, 자동 검색) 인바운드가 허용되었습니다.
 echo.
 echo  이 서버 PC의 IP 주소(직원에게 알려줄 주소):
 ipconfig | findstr /c:"IPv4"

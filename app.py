@@ -212,6 +212,99 @@ def normalize_server_url(s):
     return f"http://{p.hostname}:{p.port or 5000}"
 
 
+# ---------------------------------------------------------------- LAN 서버 자동 탐색 (UDP 브로드캐스트)
+# 직원 PC가 서버 PC를 IP 없이 자동으로 찾고, 서버 IP가 바뀌어도 다시 찾을 수 있게 함.
+DISCOVERY_PORT = 50505
+DISCOVERY_MAGIC = b"TFI_DISCOVER_V1"
+WEB_PORT = getattr(version, "DEFAULT_SERVER_PORT", 5000)
+SERVER_IP_CFG = os.path.join(DATA_DIR, "server_ip.cfg")   # 서버가 마지막으로 기록한 자기 IP(변경 감지용)
+SERVER_IP_CHANGED = None   # (이전IP, 현재IP) — 서버 시작 시 IP가 바뀌었으면 설정됨
+_discovery_started = False
+
+
+def read_last_server_ip():
+    try:
+        return (open(SERVER_IP_CFG, encoding="utf-8").read().strip() or None)
+    except OSError:
+        return None
+
+
+def write_last_server_ip(ip):
+    try:
+        with open(SERVER_IP_CFG, "w", encoding="utf-8") as f:
+            f.write(ip or "")
+    except OSError:
+        pass
+
+
+def _subnet_broadcast():
+    ip = lan_ip()
+    if ip and ip != "127.0.0.1" and ip.count(".") == 3:
+        return ip.rsplit(".", 1)[0] + ".255"
+    return None
+
+
+def start_discovery_responder():
+    """서버 모드 전용: 직원 PC의 탐색 요청에 '현재' IP로 응답하는 UDP 데몬."""
+    global _discovery_started
+    if _discovery_started:
+        return
+    _discovery_started = True
+
+    def _serve():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", DISCOVERY_PORT))
+        except Exception:
+            return
+        while True:
+            try:
+                data, addr = s.recvfrom(1024)
+                if data.startswith(DISCOVERY_MAGIC):
+                    # 응답마다 현재 IP를 다시 평가 → IP가 바뀌어도 항상 최신값 응답
+                    reply = ("TFI_SERVER|%s|%d" % (lan_ip(), WEB_PORT)).encode("utf-8")
+                    s.sendto(reply, addr)
+            except Exception:
+                pass
+
+    threading.Thread(target=_serve, daemon=True).start()
+
+
+def discover_server(timeout=2.0):
+    """클라이언트(직원 PC): LAN 브로드캐스트로 서버 주소(http://ip:port)를 찾음. 없으면 None."""
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.settimeout(timeout)
+        targets = ["255.255.255.255"]
+        sb = _subnet_broadcast()
+        if sb and sb not in targets:
+            targets.append(sb)
+        for b in targets:
+            try:
+                s.sendto(DISCOVERY_MAGIC, (b, DISCOVERY_PORT))
+            except Exception:
+                pass
+        while True:                       # timeout 안에서 첫 유효 응답 반환
+            data, addr = s.recvfrom(1024)
+            if data.startswith(b"TFI_SERVER|"):
+                parts = data.decode("utf-8", "ignore").split("|")
+                ip = parts[1] if len(parts) > 1 and parts[1] else addr[0]
+                port = parts[2] if len(parts) > 2 and parts[2] else str(WEB_PORT)
+                return f"http://{ip}:{port}"
+    except Exception:
+        return None
+    finally:
+        if s:
+            try:
+                s.close()
+            except Exception:
+                pass
+    return None
+
+
 def relaunch_app():
     """현재 앱(exe)을 재시작 (모드 변경 적용). 성공 시 반환 없음."""
     try:
@@ -403,7 +496,8 @@ def connect_settings():
             write_server_cfg("self")
         threading.Timer(1.2, relaunch_app).start()   # 응답 후 재시작
         return render_template("connect.html", restarting=True, lan_ip=lan_ip())
-    return render_template("connect.html", cur=read_server_cfg(), lan_ip=lan_ip())
+    return render_template("connect.html", cur=read_server_cfg(), lan_ip=lan_ip(),
+                           ip_changed=SERVER_IP_CHANGED)
 
 
 @app.route("/signup", methods=["GET", "POST"])
