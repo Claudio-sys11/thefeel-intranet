@@ -99,6 +99,11 @@ td.dt .dt-time{font-size:10.5px;color:#94a3b8}
 .choice-btn:hover{filter:brightness(1.06)}
 .manual-toggle{text-align:center;margin:4px 0 0}
 .manual-toggle a{color:#9b93b5;font-size:12px;cursor:pointer;text-decoration:underline}
+/* 재시작 진행바 */
+.restart-prog{display:flex;align-items:center;gap:10px;margin-top:18px;justify-content:center}
+.restart-track{position:relative;background:#e6e2f0;border-radius:999px;height:10px;width:200px;overflow:hidden}
+.restart-fill{height:10px;width:0;background:linear-gradient(90deg,#6d28d9,#c026d3);transition:width .25s}
+#rpct{font-size:12px;font-weight:800;color:#5b21b6;min-width:42px}
 .status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
 .divider2{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:16px 0}
 .divider2::before,.divider2::after{content:"";flex:1;height:1px;background:#e6e2f0}

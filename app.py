@@ -359,13 +359,29 @@ def discover_server(timeout=2.0):
 
 
 def relaunch_app():
-    """현재 앱(exe)을 재시작 (모드 변경 적용). 성공 시 반환 없음."""
-    try:
-        if getattr(sys, "frozen", False):
-            cmd = f'ping 127.0.0.1 -n 3 >nul & "{sys.executable}"'
-            subprocess.Popen(["cmd", "/c", cmd], creationflags=0x00000208, close_fds=True)
-    except Exception:
-        pass
+    """현재 앱(exe)을 재시작 (모드 변경 적용). 성공 시 반환 없음.
+    Windows 작업 스케줄러로 위임해 새 인스턴스를 확실히 띄움(분리 프로세스만으로는
+    상위 잡 오브젝트/세션 문제로 실행이 누락될 수 있음). 실패 시 분리 프로세스로 폴백."""
+    exe = sys.executable
+    if getattr(sys, "frozen", False):
+        CNW = 0x08000000  # CREATE_NO_WINDOW
+        ok = False
+        try:
+            task = "TheFeelIntranetRelaunch"
+            action = (f'cmd /c ping 127.0.0.1 -n 2 >nul & '
+                      f'"{exe}" & schtasks /delete /tn {task} /f')
+            r1 = subprocess.run(["schtasks", "/create", "/tn", task, "/sc", "once",
+                                 "/st", "00:00", "/tr", action, "/f"], creationflags=CNW)
+            r2 = subprocess.run(["schtasks", "/run", "/tn", task], creationflags=CNW)
+            ok = (r1.returncode == 0 and r2.returncode == 0)
+        except Exception:
+            ok = False
+        if not ok:
+            try:  # 폴백: 분리 프로세스로 직접 재실행
+                subprocess.Popen(["cmd", "/c", f'ping 127.0.0.1 -n 2 >nul & "{exe}"'],
+                                 creationflags=0x00000208, close_fds=True)
+            except Exception:
+                pass
     os._exit(0)
 
 
@@ -547,16 +563,23 @@ def connect_settings():
     if request.method == "POST":
         mode = request.form.get("mode")
         if mode == "auto":
-            write_server_cfg("auto")              # 직원 PC: 서버 자동 탐색
+            newcfg = "auto"
         elif mode == "client":
             url = normalize_server_url(request.form.get("server", ""))
             if not url:
                 flash("서버(관리자 PC) 주소를 올바르게 입력하세요.", "error")
                 return redirect(url_for("connect_settings"))
-            write_server_cfg(url)
+            newcfg = url
         else:
-            write_server_cfg("self")
-        threading.Timer(1.2, relaunch_app).start()   # 응답 후 재시작
+            newcfg = "self"
+        cur = read_server_cfg()
+        write_server_cfg(newcfg)
+        # 모드 변경이 없으면 재시작 불필요 → 바로 로그인 화면으로 (멈춘 듯 보이는 문제 방지)
+        if (cur or "self") == newcfg:
+            flash("이미 해당 모드로 설정되어 있습니다." if newcfg == "self"
+                  else "설정을 저장했습니다.", "ok")
+            return redirect(url_for("login"))
+        threading.Timer(5.5, relaunch_app).start()   # 진행바가 거의 찬 뒤 재시작
         return render_template("connect.html", restarting=True, lan_ip=lan_ip())
     return render_template("connect.html", cur=read_server_cfg(), lan_ip=lan_ip(),
                            ip_changed=SERVER_IP_CHANGED)

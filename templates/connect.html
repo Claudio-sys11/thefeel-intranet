@@ -6,7 +6,20 @@
     {% if restarting %}
       <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="login-logo">
       <h1 class="wordmark" style="font-size:24px">재시작 중…</h1>
-      <p class="sub">연결 설정을 적용해 프로그램을 다시 시작합니다.<br>잠시 후 자동으로 열립니다.</p>
+      <p class="sub">연결 설정을 적용해 프로그램을 다시 시작합니다.<br>잠시만 기다려 주세요.</p>
+      <div class="restart-prog"><div class="restart-track"><div id="rfill" class="restart-fill"></div></div>
+        <span id="rpct">0%</span></div>
+      <script>
+      (function(){
+        var fill=document.getElementById('rfill'), pct=document.getElementById('rpct');
+        var t0=Date.now(), dur=5500;        // 재시작 시점과 맞춰 진행
+        var iv=setInterval(function(){
+          var p=Math.min(99, Math.round((Date.now()-t0)/dur*100));
+          fill.style.width=p+'%'; pct.textContent=p+'%';
+          if(p>=99) clearInterval(iv);
+        }, 100);
+      })();
+      </script>
     {% else %}
       <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="login-logo sm">
       <h1 class="wordmark" style="font-size:22px">서버 연결 설정</h1>

@@ -88,21 +88,28 @@ class Api:
 
 
 class ConfigApi:
-    """최초 실행 연결 설정 창"""
+    """최초 실행 연결 설정 창. 모드 저장 후 진행바가 보이도록 약간의 지연 뒤 재시작."""
+    def _schedule_relaunch(self):
+        threading.Timer(5.5, appmod.relaunch_app).start()
+
     def use_self(self):
         appmod.write_server_cfg("self")
-        appmod.relaunch_app()
+        self._schedule_relaunch()
+        return True
 
     def use_auto(self):
         """직원 PC: 서버 자동 탐색 모드로 설정 후 재시작."""
         appmod.write_server_cfg("auto")
-        appmod.relaunch_app()
+        self._schedule_relaunch()
+        return True
 
     def connect(self, addr):
         url = appmod.normalize_server_url(addr)
-        if url:
-            appmod.write_server_cfg(url)
-            appmod.relaunch_app()
+        if not url:
+            return False
+        appmod.write_server_cfg(url)
+        self._schedule_relaunch()
+        return True
 
     def auto_detect(self):
         """LAN에서 서버를 자동 탐색해 'host:port' 문자열로 반환(JS 입력칸 채우기). 없으면 ''"""
@@ -237,27 +244,50 @@ label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px}
 input{width:100%;padding:11px;border:1px solid #e6e2f0;border-radius:10px;font-size:14px}
 .btn2{width:100%;padding:11px;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;color:#fff;background:#475569;margin-top:10px}
 #manual{display:none;margin-top:8px}
+#restart{display:none;text-align:center}
+#restart h2{font-size:18px;margin:6px 0 4px}
+#restart p{color:#6b6480;font-size:13px;margin:0 0 18px}
+.rtrack{position:relative;background:#e6e2f0;border-radius:999px;height:10px;width:100%;overflow:hidden}
+.rfill{height:10px;width:0;background:linear-gradient(90deg,#6d28d9,#c026d3);transition:width .25s}
+#rp{display:block;margin-top:10px;font-size:13px;font-weight:800;color:#5b21b6}
 </style></head><body>
 <div class="card">
-  <h1>The Feel Intranet</h1>
-  <p class="sub">이 PC를 어떻게 사용할까요?</p>
-  __ERR__
-  <button class="choice server" onclick="self_()">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
-  <button class="choice client" id="cbtn" onclick="auto_()">💻 직원 PC로 사용<small>서버를 자동으로 찾아 연결합니다</small></button>
-  <div class="manual-link"><a onclick="toggleManual()">서버를 못 찾으면 직접 입력하기</a></div>
-  <div id="manual">
-    <label>서버(관리자 PC) 주소</label>
-    <input id="srv" value="__VAL__" placeholder="예: 192.168.0.74">
-    <button class="btn2" onclick="conn()">이 주소로 접속</button>
+  <div id="choose">
+    <h1>The Feel Intranet</h1>
+    <p class="sub">이 PC를 어떻게 사용할까요?</p>
+    __ERR__
+    <button class="choice server" onclick="pick('use_self')">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
+    <button class="choice client" onclick="pick('use_auto')">💻 직원 PC로 사용<small>서버를 자동으로 찾아 연결합니다</small></button>
+    <div class="manual-link"><a onclick="toggleManual()">서버를 못 찾으면 직접 입력하기</a></div>
+    <div id="manual">
+      <label>서버(관리자 PC) 주소</label>
+      <input id="srv" value="__VAL__" placeholder="예: 192.168.0.74">
+      <button class="btn2" onclick="conn()">이 주소로 접속</button>
+    </div>
+  </div>
+  <div id="restart">
+    <h2>적용 중…</h2>
+    <p>설정을 저장하고 프로그램을 다시 시작합니다.</p>
+    <div class="rtrack"><div id="rfill" class="rfill"></div></div>
+    <span id="rp">0%</span>
   </div>
 </div>
 <script>
-function self_(){ try{ pywebview.api.use_self(); }catch(e){} }
-function auto_(){ var b=document.getElementById('cbtn'); b.innerHTML='💻 서버를 찾는 중...'; b.disabled=true; try{ pywebview.api.use_auto(); }catch(e){} }
+function showRestart(){
+  document.getElementById('choose').style.display='none';
+  document.getElementById('restart').style.display='block';
+  var fill=document.getElementById('rfill'), rp=document.getElementById('rp'), t0=Date.now(), dur=5500;
+  var iv=setInterval(function(){
+    var p=Math.min(99, Math.round((Date.now()-t0)/dur*100));
+    fill.style.width=p+'%'; rp.textContent=p+'%';
+    if(p>=99) clearInterval(iv);
+  },100);
+}
+function pick(fn){ try{ pywebview.api[fn]().then(function(ok){ if(ok) showRestart(); }); }catch(e){} }
 function toggleManual(){ var m=document.getElementById('manual'); m.style.display=(m.style.display==='block')?'none':'block'; }
 function conn(){ var v=document.getElementById('srv').value.trim();
   if(!v){ alert('서버(관리자 PC) 주소를 입력하세요'); return; }
-  try{ pywebview.api.connect(v); }catch(e){} }
+  try{ pywebview.api.connect(v).then(function(ok){ if(ok) showRestart(); else alert('주소가 올바르지 않습니다'); }); }catch(e){} }
 </script></body></html>"""
 
 
