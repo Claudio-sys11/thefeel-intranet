@@ -24,7 +24,7 @@
         <th style="width:42px"><input type="checkbox" id="chkall" title="전체 선택"></th>
         <th>아이디</th><th>사번</th><th>이름</th><th>직급</th><th>부서</th><th>직책</th>
         <th>전화번호</th><th>내선</th><th>권한</th><th>연차</th><th>승인</th><th>재직상태</th>
-        <th>가입일시</th><th>승인일시</th><th>관리</th>
+        <th>가입일시</th><th>승인일시</th><th>최근접속</th><th>관리</th>
       </tr>
     </thead>
     <tbody>
@@ -59,6 +59,7 @@
         </td>
         <td class="dt">{% if u['created_at'] %}{{ u['created_at'][:10] }}<br><span class="dt-time">{{ u['created_at'][11:16] }}</span>{% else %}-{% endif %}</td>
         <td class="dt">{% if u['approved_at'] %}{{ u['approved_at'][:10] }}<br><span class="dt-time">{{ u['approved_at'][11:16] }}</span>{% elif u['status']=='pending' %}<span class="dt-time">대기중</span>{% else %}-{% endif %}</td>
+        <td class="dt">{% if u['last_login'] %}{{ u['last_login'][:10] }}<br><span class="dt-time">{{ u['last_login'][11:16] }}</span>{% else %}<span class="dt-time">없음</span>{% endif %}</td>
         <td class="row-actions">
           <a href="{{ url_for('admin_user_edit', uid=u['id']) }}" class="btn small">수정</a>
           <button type="submit" class="btn small" formaction="{{ url_for('admin_user_reset_pw', uid=u['id']) }}"

@@ -346,6 +346,8 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN approved_at TEXT")  # 가입 승인 일시
         # 기존 승인(active) 계정은 가입일시를 승인일시로 백필
         db.execute("UPDATE users SET approved_at=created_at WHERE approved_at IS NULL AND status='active'")
+    if "last_login" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN last_login TEXT")   # 최근 접속(로그인) 일시
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -467,6 +469,9 @@ def login():
             elif row["status"] == "rejected":
                 flash("이용이 제한된 계정입니다. 관리자에게 문의하세요.", "error")
             else:
+                db = get_db()
+                db.execute("UPDATE users SET last_login=datetime('now','localtime') WHERE id=?", (row["id"],))
+                db.commit()
                 session.clear()
                 session["uid"] = row["id"]
                 return redirect(request.args.get("next") or url_for("dashboard"))
