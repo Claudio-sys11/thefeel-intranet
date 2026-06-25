@@ -53,7 +53,6 @@ function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.clos
   var el=document.getElementById('ver-check');
   function check(){
     fetch('/update/public_status').then(function(r){return r.json()}).then(function(s){
-      if(!s.checked){ el.textContent='최신 버전 확인 중…'; setTimeout(check,1500); return; }
       if(s.available){
         el.className='ver-check has';
         var btn = (s.is_local && s.frozen)
@@ -64,8 +63,11 @@ function closeApp(){ try{ if(window.pywebview&&pywebview.api&&pywebview.api.clos
           '<div class="upd-track"><div id="upd-fill" class="upd-fill"></div></div>'+
           '<span id="upd-pct">0%</span></div>';
         var b=document.getElementById('upd-btn'); if(b) b.addEventListener('click', startUpdate);
+        return;
       }
-      else{ el.className='ver-check ok'; el.innerHTML='✓ 최신 버전 <b>v'+s.current+'</b>'; }
+      // 최신이거나 아직 확인 중 → 현재 버전을 바로 표시(대기 없음). 확인 안 끝났으면 백그라운드로 계속 확인.
+      el.className='ver-check ok'; el.innerHTML='✓ 최신 버전 <b>v'+s.current+'</b>';
+      if(!s.checked){ setTimeout(check, 2000); }
     }).catch(function(){ el.textContent='버전 확인 실패'; });
   }
   function startUpdate(){

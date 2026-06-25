@@ -29,7 +29,7 @@ def _vt(s):
     return tuple(parts[:3])
 
 
-def check_update(timeout=5):
+def check_update(timeout=4):
     """새 버전이 있으면 dict 반환, 없거나 실패하면 None"""
     try:
         req = urllib.request.Request(

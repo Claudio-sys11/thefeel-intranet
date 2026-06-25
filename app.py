@@ -200,7 +200,7 @@ def _backup_db():
         chk.close()
         if n <= 0:
             return
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S%f")   # 마이크로초까지 → 같은 초에도 충돌 없음
         dst = os.path.join(BACKUP_DIR, f"intranet-{ts}.db")
         if not os.path.exists(dst):
             shutil.copy2(DB_PATH, dst)
@@ -213,14 +213,52 @@ def _backup_db():
         pass
 
 
+def _latest_backup_with_users():
+    """사용자 데이터가 있는 가장 최신 백업 경로 반환. 없으면 None."""
+    try:
+        for f in sorted(glob.glob(os.path.join(BACKUP_DIR, "intranet-*.db")), reverse=True):
+            try:
+                c = sqlite3.connect(f)
+                n = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+                c.close()
+                if n and n > 0:
+                    return f
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+
+def _restore_if_empty():
+    """DB는 있으나 사용자가 0명(비정상)이면, 데이터가 있는 최신 백업에서 복원.
+    → 빈 상태에서 새 관리자만 시드되어 기존 데이터가 사라지는 것을 방지."""
+    try:
+        if not os.path.exists(DB_PATH):
+            return
+        c = sqlite3.connect(DB_PATH)
+        try:
+            n = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        except Exception:
+            n = 0          # users 테이블이 아직 없으면 비어있는 것으로 간주
+        c.close()
+        if n and n > 0:
+            return
+        bk = _latest_backup_with_users()
+        if bk:
+            shutil.copy2(bk, DB_PATH)
+    except Exception:
+        pass
+
+
 def _restore_if_missing():
-    """메인 DB가 없으면 최신 백업에서 복원(데이터 손실 방지)."""
+    """메인 DB가 없으면 데이터가 있는 최신 백업에서 복원(데이터 손실 방지)."""
     if os.path.exists(DB_PATH):
         return
     try:
-        bks = sorted(glob.glob(os.path.join(BACKUP_DIR, "intranet-*.db")))
-        if bks:
-            shutil.copy2(bks[-1], DB_PATH)
+        bk = _latest_backup_with_users()
+        if bk:
+            shutil.copy2(bk, DB_PATH)
     except Exception:
         pass
 
@@ -401,7 +439,8 @@ def relaunch_app():
 
 
 def init_db():
-    _restore_if_missing()
+    _restore_if_missing()              # 파일 없으면 백업 복원
+    _restore_if_empty()                # 파일은 있으나 사용자 0명이면 백업 복원(데이터 보호)
     db = sqlite3.connect(DB_PATH)
     with open(resource_path("schema.sql"), encoding="utf-8") as f:
         db.executescript(f.read())
