@@ -81,6 +81,8 @@ main.plain{max-width:none;padding:0}
 .btn.ok:hover{filter:brightness(1.05)}
 table.list.center th,table.list.center td{text-align:center;vertical-align:middle}
 table.list.wide th,table.list.wide td{padding:12px 9px}
+td.dt{font-size:12px;color:#334155;white-space:nowrap;line-height:1.35}
+td.dt .dt-time{font-size:11px;color:#94a3b8}
 .status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
 .divider2{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:16px 0}
 .divider2::before,.divider2::after{content:"";flex:1;height:1px;background:#e6e2f0}

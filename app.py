@@ -249,6 +249,10 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN perm_users INTEGER NOT NULL DEFAULT 0")
     if "perm_leave" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN perm_leave INTEGER NOT NULL DEFAULT 0")
+    if "approved_at" not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN approved_at TEXT")  # 가입 승인 일시
+        # 기존 승인(active) 계정은 가입일시를 승인일시로 백필
+        db.execute("UPDATE users SET approved_at=created_at WHERE approved_at IS NULL AND status='active'")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -261,8 +265,8 @@ def init_db():
     legacy = db.execute("SELECT id FROM users WHERE username='admin'").fetchone()
     if cnt == 0:
         db.execute(
-            "INSERT INTO users (username, password_hash, name, dept, position, role, status, hire_date, annual_leave)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users (username, password_hash, name, dept, position, role, status, hire_date, annual_leave, approved_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'))",
             (ADMIN_USER, hashpw(ADMIN_PW), "관리자",
              "경영지원", "관리자", "admin", "active", date.today().isoformat(), 15),
         )
@@ -913,7 +917,7 @@ def admin_users_bulk():
     db = get_db()
     ph = ",".join("?" * len(ids))
     if action == "approve":
-        cur = db.execute(f"UPDATE users SET status='active', is_active=1 WHERE id IN ({ph}) AND status='pending'", ids)
+        cur = db.execute(f"UPDATE users SET status='active', is_active=1, approved_at=datetime('now','localtime') WHERE id IN ({ph}) AND status='pending'", ids)
         flash(f"{cur.rowcount}명 가입 승인 처리했습니다.", "ok")
     elif action == "lock":
         cur = db.execute(f"UPDATE users SET locked=1 WHERE id IN ({ph}) AND role!='admin'", ids)
@@ -969,7 +973,8 @@ def admin_pending(uid):
             return render_template("admin/pending.html", u=u)
         try:
             db.execute("""UPDATE users SET username=?, emp_no=?, dept=?, position=?, role=?, hire_date=?,
-                          annual_leave=?, status='active', is_active=1 WHERE id=?""",
+                          annual_leave=?, status='active', is_active=1,
+                          approved_at=datetime('now','localtime') WHERE id=?""",
                        (username, request.form.get("emp_no", "").strip(),
                         request.form.get("dept", "").strip(), request.form.get("position", "").strip(),
                         request.form.get("role", "employee"), request.form.get("hire_date", "").strip() or None,
@@ -989,8 +994,8 @@ def admin_user_new():
     if request.method == "POST":
         db = get_db()
         username = request.form.get("username", "").strip().upper()
-        if not username or not request.form.get("name", "").strip():
-            flash("아이디와 이름은 필수입니다.", "error")
+        if not username:
+            flash("아이디(ID)는 반드시 입력해야 합니다. (나머지 항목은 비워도 저장됩니다)", "error")
             return render_template("admin/user_form.html", u=request.form, mode="new")
         if db.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
             flash("이미 존재하는 아이디입니다.", "error")
@@ -1006,11 +1011,11 @@ def admin_user_new():
         perm_users = 1 if (editor_admin and request.form.get("perm_users")) else 0
         perm_leave = 1 if (editor_admin and request.form.get("perm_leave")) else 0
         try:
-            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, job_title, role, perm_users, perm_leave, hire_date, annual_leave)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO users (username, emp_no, ext, phone, password_hash, name, email, dept, dept2, position, job_title, role, perm_users, perm_leave, hire_date, annual_leave, approved_at)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))""",
                        (username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(), format_phone(request.form.get("phone", "").strip()),
-                        hashpw(pw), request.form.get("name").strip(),
+                        hashpw(pw), request.form.get("name", "").strip(),
                         request.form.get("email", "").strip(), request.form.get("dept", "").strip(),
                         request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
@@ -1054,7 +1059,7 @@ def admin_user_edit(uid):
             db.execute("""UPDATE users SET username=?, emp_no=?, ext=?, name=?, email=?, phone=?, dept=?, dept2=?, position=?, job_title=?, role=?, perm_users=?, perm_leave=?, hire_date=?, annual_leave=?, is_active=? WHERE id=?""",
                        (new_username, request.form.get("emp_no", "").strip(),
                         request.form.get("ext", "").strip(),
-                        request.form.get("name").strip(), request.form.get("email", "").strip(),
+                        request.form.get("name", "").strip(), request.form.get("email", "").strip(),
                         format_phone(request.form.get("phone", "").strip()),
                         request.form.get("dept", "").strip(), request.form.get("dept2", "").strip(),
                         request.form.get("position", "").strip(), request.form.get("job_title", "").strip(),
