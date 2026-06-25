@@ -13,6 +13,7 @@ import sys
 import time
 import socket
 import threading
+import subprocess
 import webbrowser
 import urllib.parse
 import urllib.request
@@ -24,6 +25,8 @@ import version
 
 HOST, PORT = "0.0.0.0", 5000
 TITLE = f"The Feel Intranet  v{version.__version__}"
+HEADLESS = "--server" in sys.argv          # GUI 없이 서버만 백그라운드로 운영
+SERVER_TASK = "TheFeelIntranetServer"      # 로그온 시 자동 시작 작업 이름
 
 LOGIN_SIZE = (440, 690)
 SIGNUP_SIZE = (450, 830)
@@ -173,6 +176,111 @@ def start_server():
         ServerThread().start()
     except OSError:
         pass
+
+
+# -------------------------------------------- 백그라운드(헤드리스) 서버 = 앱을 안 켜도 직원 접속 가능
+SERVER_PID_FILE = os.path.join(appmod.DATA_DIR, "server.pid")
+
+
+def _write_server_pid():
+    try:
+        with open(SERVER_PID_FILE, "w") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+
+
+def stop_background_server():
+    """실행 중인 백그라운드 서버를 PID로 종료(직원 PC 전환/데모트 시)."""
+    try:
+        pid = open(SERVER_PID_FILE).read().strip()
+    except Exception:
+        pid = ""
+    if pid:
+        try:
+            subprocess.run(["taskkill", "/pid", pid, "/f"], creationflags=0x08000000)
+        except Exception:
+            pass
+    try:
+        os.remove(SERVER_PID_FILE)
+    except Exception:
+        pass
+
+
+def run_headless_server():
+    """GUI 없이 Flask 서버만 운영(직원 PC 접속용). 이미 떠 있으면 즉시 종료(중복 방지)."""
+    if reachable(f"http://127.0.0.1:{PORT}"):
+        return
+    try:
+        appmod.init_db()
+    except Exception:
+        appmod.log_event("headless.init_db")
+    try:
+        appmod.write_last_server_ip(appmod.lan_ip())
+    except Exception:
+        pass
+    try:
+        appmod.start_discovery_responder()
+    except Exception:
+        pass
+    try:
+        srv = make_server(HOST, PORT, appmod.app, threaded=True)
+    except OSError:
+        return            # 포트 사용중 → 이미 서버 있음
+    _write_server_pid()
+    try:
+        srv.serve_forever()
+    except Exception:
+        appmod.log_event("headless.serve")
+    finally:
+        try:
+            os.remove(SERVER_PID_FILE)
+        except Exception:
+            pass
+
+
+RUN_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run"
+
+
+def register_server_autostart():
+    """로그온 시 백그라운드 서버 자동 시작 등록(레지스트리 HKCU Run, 관리자 권한 불필요).
+    서버 PC를 켜두면 앱을 열지 않아도, 재부팅 후 로그인하면 서버가 자동으로 뜸."""
+    if not getattr(sys, "frozen", False):
+        return
+    try:
+        subprocess.run(["reg", "add", RUN_KEY, "/v", SERVER_TASK, "/t", "REG_SZ",
+                        "/d", f'"{sys.executable}" --server', "/f"],
+                       creationflags=0x08000000)
+    except Exception:
+        appmod.log_event("register_server_autostart")
+
+
+def unregister_server_autostart():
+    """직원 PC로 전환 시 서버 자동시작 해제."""
+    if not getattr(sys, "frozen", False):
+        return
+    try:
+        subprocess.run(["reg", "delete", RUN_KEY, "/v", SERVER_TASK, "/f"],
+                       creationflags=0x08000000)
+    except Exception:
+        pass
+
+
+def ensure_background_server():
+    """서버 PC: 백그라운드 서버가 항상 돌도록 보장 + 자동시작 등록.
+    앱(창)을 닫아도 이 백그라운드 서버는 계속 살아 있어 직원 PC가 접속할 수 있음."""
+    register_server_autostart()
+    if reachable(f"http://127.0.0.1:{PORT}"):
+        return            # 이미 백그라운드 서버 실행 중
+    try:
+        if getattr(sys, "frozen", False):
+            subprocess.Popen([sys.executable, "--server"],
+                             creationflags=0x00000208, close_fds=True)
+        else:
+            subprocess.Popen([sys.executable, os.path.abspath(__file__), "--server"],
+                             close_fds=True)
+    except Exception:
+        appmod.log_event("ensure_background_server")
 
 
 # ---------------------------------------------------------------- 창
@@ -332,10 +440,32 @@ def show_config(error="", value=""):
 
 
 def _run_server_mode():
+    """서버 PC: 백그라운드 서버를 띄우고(앱을 닫아도 유지) GUI는 그 서버에 접속.
+    백그라운드 서버가 안 뜨면 인프로세스 서버로 폴백."""
     global BASE
     BASE = f"http://127.0.0.1:{PORT}"
+    appmod.updater.check_async()
+    # 서버 IP 변경 감지(안내 배너용)
     try:
-        start_server()
+        cur_ip = appmod.lan_ip()
+        prev_ip = appmod.read_last_server_ip()
+        if prev_ip and prev_ip != cur_ip:
+            appmod.SERVER_IP_CHANGED = (prev_ip, cur_ip)
+    except Exception:
+        pass
+    ensure_background_server()
+    ok = False
+    for _ in range(20):                     # 백그라운드 서버 응답 대기(최대 ~6초)
+        if reachable(BASE):
+            ok = True
+            break
+        time.sleep(0.3)
+    if not ok:
+        try:
+            start_server()                  # 폴백: 인프로세스 서버
+        except Exception:
+            pass
+    try:
         launch_windows()
     except Exception:
         webbrowser.open(BASE); threading.Event().wait()
@@ -346,6 +476,8 @@ def _run_client_mode(url):
     저장 주소 → 자동 탐색(서버 IP 인식) → 기본 주소 순으로 시도."""
     global BASE
     appmod.updater.check_async()
+    unregister_server_autostart()        # 직원 PC는 서버 자동시작 해제
+    stop_background_server()             # 이 PC가 서버였다면 백그라운드 서버 중지
     default = getattr(version, "DEFAULT_SERVER_URL", "")
     try:
         # 1) 저장된 특정 주소(수동 입력)가 있으면 우선
@@ -412,6 +544,12 @@ def _main_impl():
 
 
 def main():
+    if HEADLESS:                              # 백그라운드 서버 전용 (GUI 없음)
+        try:
+            run_headless_server()
+        except Exception:
+            appmod.log_event("headless.main")
+        return
     try:
         _main_impl()
     except Exception:

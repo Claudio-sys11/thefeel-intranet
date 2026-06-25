@@ -114,7 +114,10 @@ def _do_apply(download_url):
         # 앱이 종료돼도 설치가 끝까지 진행됨(동일 AppId: 이전 버전 제거 후 [Run] 재실행).
         CNW = 0x08000000  # CREATE_NO_WINDOW
         task = "TheFeelIntranetUpdate"
+        # 백그라운드 서버(헤드리스)까지 모든 인스턴스를 종료해야 exe 잠금이 풀려 설치됨.
         action = (f'cmd /c ping 127.0.0.1 -n 4 >nul & '
+                  f'taskkill /im ThefeelIntranet.exe /f >nul 2>&1 & '
+                  f'ping 127.0.0.1 -n 2 >nul & '
                   f'"{setup}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART & '
                   f'schtasks /delete /tn {task} /f')
         subprocess.run(["schtasks", "/create", "/tn", task, "/sc", "once", "/st", "00:00",
