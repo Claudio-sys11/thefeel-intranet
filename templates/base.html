@@ -72,15 +72,16 @@
   function checkStatus(){
     fetch('/update/status').then(function(r){return r.json()}).then(function(s){
       info=s;
-      if(!s.checked){ msg.textContent='최신 버전 확인 중…'; setTimeout(checkStatus,2000); return; }
       if(s.available){
         bar.classList.add('has-update');
         msg.innerHTML='🆕 새 버전 <b>v'+s.latest+'</b> 사용 가능 (현재 v'+s.current+')';
         if(s.is_admin && s.frozen){ btn.style.display='inline-block'; }
-      }else{
-        bar.classList.remove('has-update');
-        msg.innerHTML='✓ 최신 버전입니다 <b>v'+s.current+'</b>';
+        return;
       }
+      // 최신이거나 아직 확인 중 → 현재 버전 즉시 표시(대기 없음), 미완료면 백그라운드 재확인
+      bar.classList.remove('has-update');
+      msg.innerHTML='✓ 최신 버전입니다 <b>v'+s.current+'</b>';
+      if(!s.checked){ setTimeout(checkStatus,2500); }
     }).catch(function(){ msg.textContent='버전 확인 실패'; });
   }
 
