@@ -30,8 +30,16 @@
         직원 PC는 다음 실행 시 <b>자동으로</b> 새 주소를 찾으니 별도 수정은 필요 없습니다.</div>
       {% endif %}
 
+      {% if other_server %}
+      <div class="ipchg">이미 서버 PC가 사용 중입니다: <b>{{ other_server }}</b><br>
+        서버는 하나만 둘 수 있어, 이 PC는 <b>직원 PC</b>로만 설정됩니다.</div>
+      {% endif %}
       <form method="post">
+        {% if other_server %}
+        <button type="button" class="choice-btn server" disabled style="opacity:.5;cursor:not-allowed">🖥 이 PC를 서버로 사용<small>이미 서버가 있어 선택할 수 없습니다</small></button>
+        {% else %}
         <button type="submit" name="mode" value="self" class="choice-btn server">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
+        {% endif %}
         <button type="submit" name="mode" value="auto" class="choice-btn client">💻 직원 PC로 사용<small>서버를 자동으로 찾아 연결합니다</small></button>
       </form>
       <p class="manual-toggle"><a onclick="document.getElementById('mf').style.display=(document.getElementById('mf').style.display=='block'?'none':'block')">서버를 못 찾으면 직접 입력하기</a></p>

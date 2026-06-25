@@ -324,6 +324,21 @@ def start_discovery_responder():
     threading.Thread(target=_serve, daemon=True).start()
 
 
+def find_other_server(timeout=1.5):
+    """LAN에 이미 '다른' 서버가 있으면 그 주소를 반환(자기 자신 제외). 없으면 None.
+    → 서버는 하나만 두기 위해, 다른 서버가 있으면 이 PC는 직원 PC로만 설정하게 함."""
+    url = discover_server(timeout=timeout)
+    if not url:
+        return None
+    try:
+        host = urllib.parse.urlparse(url).hostname
+    except Exception:
+        host = None
+    if host and host == lan_ip():
+        return None      # 자기 자신(이미 이 PC가 서버) → '다른 서버' 아님
+    return url
+
+
 def discover_server(timeout=2.0):
     """클라이언트(직원 PC): LAN 브로드캐스트로 서버 주소(http://ip:port)를 찾음. 없으면 None."""
     s = None
@@ -572,6 +587,12 @@ def connect_settings():
             newcfg = url
         else:
             newcfg = "self"
+        # 서버는 하나만: 이미 다른 서버가 있으면 '이 PC를 서버로'는 거부 → 직원 PC로만
+        if newcfg == "self":
+            other = find_other_server()
+            if other:
+                flash(f"이미 서버 PC가 사용 중입니다({other}). 이 PC는 직원 PC로만 설정할 수 있습니다.", "error")
+                return redirect(url_for("connect_settings"))
         cur = read_server_cfg()
         write_server_cfg(newcfg)
         # 모드 변경이 없으면 재시작 불필요 → 바로 로그인 화면으로 (멈춘 듯 보이는 문제 방지)
@@ -582,7 +603,7 @@ def connect_settings():
         threading.Timer(5.5, relaunch_app).start()   # 진행바가 거의 찬 뒤 재시작
         return render_template("connect.html", restarting=True, lan_ip=lan_ip())
     return render_template("connect.html", cur=read_server_cfg(), lan_ip=lan_ip(),
-                           ip_changed=SERVER_IP_CHANGED)
+                           ip_changed=SERVER_IP_CHANGED, other_server=find_other_server())
 
 
 @app.route("/signup", methods=["GET", "POST"])

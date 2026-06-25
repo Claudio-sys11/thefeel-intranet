@@ -6,3 +6,11 @@ Traceback (most recent call last):
     assert rec and rec['status']=='pending' and rec['days']==2 and rec['start_date']=='2026-07-01', '기록 추가 실패'
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: 기록 추가 실패
+
+===== 2026-06-25 21:59:14 =====
+[uncaught:main]
+Traceback (most recent call last):
+  File "<string>", line 21, in <module>
+    assert '이미 서버 PC가 사용 중' in h and 'disabled' in h and '직원 PC로만' in h, '서버버튼 비활성 안됨'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 서버버튼 비활성 안됨

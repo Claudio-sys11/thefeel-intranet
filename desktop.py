@@ -92,7 +92,23 @@ class ConfigApi:
     def _schedule_relaunch(self):
         threading.Timer(5.5, appmod.relaunch_app).start()
 
+    def scan(self):
+        """LAN에 이미 다른 서버가 있는지 확인 → 있으면 이 PC는 직원 PC로만."""
+        try:
+            url = appmod.find_other_server()
+            if url:
+                return {"other": True, "url": url}
+        except Exception:
+            pass
+        return {"other": False, "url": ""}
+
     def use_self(self):
+        # 서버는 하나만: 이미 다른 서버가 있으면 거부
+        try:
+            if appmod.find_other_server():
+                return False
+        except Exception:
+            pass
         appmod.write_server_cfg("self")
         self._schedule_relaunch()
         return True
@@ -256,7 +272,8 @@ input{width:100%;padding:11px;border:1px solid #e6e2f0;border-radius:10px;font-s
     <h1>The Feel Intranet</h1>
     <p class="sub">이 PC를 어떻게 사용할까요?</p>
     __ERR__
-    <button class="choice server" onclick="pick('use_self')">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
+    <div id="note" style="display:none;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5;margin-bottom:12px"></div>
+    <button class="choice server" id="sbtn" onclick="pick('use_self')">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
     <button class="choice client" onclick="pick('use_auto')">💻 직원 PC로 사용<small>서버를 자동으로 찾아 연결합니다</small></button>
     <div class="manual-link"><a onclick="toggleManual()">서버를 못 찾으면 직접 입력하기</a></div>
     <div id="manual">
@@ -283,7 +300,19 @@ function showRestart(){
     if(p>=99) clearInterval(iv);
   },100);
 }
-function pick(fn){ try{ pywebview.api[fn]().then(function(ok){ if(ok) showRestart(); }); }catch(e){} }
+function disableServer(url){
+  var sb=document.getElementById('sbtn');
+  sb.disabled=true; sb.style.opacity=.45; sb.style.cursor='not-allowed';
+  sb.onclick=function(){ alert('이미 서버 PC가 사용 중입니다: '+url+'\\n서버는 하나만 둘 수 있어 이 PC는 직원 PC로만 설정됩니다.'); };
+  var n=document.getElementById('note'); n.style.display='block';
+  n.innerHTML='이미 서버 PC 사용 중: <b>'+url+'</b> · 이 PC는 <b>직원 PC</b>로만 설정됩니다';
+}
+function scan(){ try{ pywebview.api.scan().then(function(r){ if(r&&r.other) disableServer(r.url); }); }catch(e){} }
+window.addEventListener('pywebviewready', scan);
+function pick(fn){ try{ pywebview.api[fn]().then(function(ok){
+    if(ok){ showRestart(); }
+    else { alert('이미 서버 PC가 있어 이 PC는 서버로 설정할 수 없습니다. 직원 PC로 사용하세요.'); }
+  }); }catch(e){} }
 function toggleManual(){ var m=document.getElementById('manual'); m.style.display=(m.style.display==='block')?'none':'block'; }
 function conn(){ var v=document.getElementById('srv').value.trim();
   if(!v){ alert('서버(관리자 PC) 주소를 입력하세요'); return; }
