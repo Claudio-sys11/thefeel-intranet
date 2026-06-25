@@ -43,6 +43,16 @@ def reachable(base):
         return False
 
 
+def is_designated_server():
+    """이 PC의 LAN IP 가 기본 서버 주소(version.DEFAULT_SERVER_HOST)와 같으면
+    이 PC가 '지정 서버 PC' → 무조건 서버 모드로 동작."""
+    try:
+        host = getattr(version, "DEFAULT_SERVER_HOST", "")
+        return bool(host) and appmod.lan_ip() == host
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------- JS 브리지
 class Api:
     def close_app(self):
@@ -175,44 +185,70 @@ def show_config(error="", value=""):
     webview.start()
 
 
-# ---------------------------------------------------------------- main
-def main():
+def _run_server_mode():
     global BASE
+    BASE = f"http://127.0.0.1:{PORT}"
+    try:
+        start_server()
+        launch_windows()
+    except Exception:
+        webbrowser.open(BASE); threading.Event().wait()
+
+
+def _run_client_mode(url):
+    global BASE
+    BASE = url
+    appmod.updater.check_async()
+    try:
+        if reachable(BASE):
+            launch_windows()
+        else:
+            show_config(error=f"서버에 연결할 수 없습니다:\n{BASE}\n서버 PC가 켜져 있고 방화벽(5000)이 열려 있는지 확인하세요.",
+                        value=urllib.parse.urlparse(BASE).hostname or "")
+    except Exception:
+        webbrowser.open(BASE); threading.Event().wait()
+
+
+# ---------------------------------------------------------------- main
+def decide_mode(cfg, db_exists, is_server_pc, default_url):
+    """모드 결정(부수효과 없음 → 테스트 용이).
+    반환: ("server", None) | ("client", url) | ("config", None)
+    """
+    # 1) 명시적 설정 우선 (서버 연결 설정에서 바꾼 경우)
+    if cfg == "self":
+        return ("server", None)
+    if cfg and cfg != "self":
+        return ("client", cfg)
+    # 2) 설정 없음(최초 실행) → 자동 결정
+    #    - 이 PC가 '지정 서버 IP' 이거나 이미 데이터 보유 → 무조건 서버
+    #    - 그 외(직원 PC) → 기본 서버 주소로 자동 클라이언트(IP 입력 불필요)
+    if is_server_pc or db_exists:
+        return ("server", None)
+    if default_url:
+        return ("client", default_url)
+    return ("config", None)
+
+
+def main():
     cfg = appmod.read_server_cfg()
     db_exists = os.path.exists(appmod.DB_PATH)
+    default_url = getattr(version, "DEFAULT_SERVER_URL", "")
 
-    # 데이터가 있는 PC(또는 self 설정)는 '항상' 서버 모드 → 데이터 절대 손실/숨김 없음
-    if cfg == "self" or (cfg is None and db_exists):
-        BASE = f"http://127.0.0.1:{PORT}"
-        try:
-            start_server()
-            launch_windows()
-        except Exception:
-            webbrowser.open(BASE); threading.Event().wait()
-        return
+    mode, url = decide_mode(cfg, db_exists, is_designated_server(), default_url)
 
-    # 클라이언트 모드 (server.cfg 가 URL)
-    if cfg and cfg != "self":
-        BASE = cfg
-        appmod.updater.check_async()
-        try:
-            if reachable(BASE):
-                launch_windows()
-            else:
-                show_config(error=f"서버에 연결할 수 없습니다:\n{BASE}\n서버 PC가 켜져 있고 방화벽(5000)이 열려 있는지 확인하세요.",
-                            value=urllib.parse.urlparse(BASE).hostname or "")
-        except Exception:
-            webbrowser.open(BASE); threading.Event().wait()
-        return
+    if mode == "server":
+        if cfg != "self":
+            appmod.write_server_cfg("self")
+        _run_server_mode(); return
+    if mode == "client":
+        if cfg != url:
+            appmod.write_server_cfg(url)       # 직원 PC 기본값: 관리자 서버로 사전 설정
+        _run_client_mode(url); return
 
-    # 최초 실행 (설정/데이터 모두 없음) → 연결 설정창
     try:
         show_config()
     except Exception:
-        # webview 불가 → 안전하게 서버 모드로
-        BASE = f"http://127.0.0.1:{PORT}"
-        start_server()
-        webbrowser.open(BASE); threading.Event().wait()
+        _run_server_mode()
 
 
 if __name__ == "__main__":
