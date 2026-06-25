@@ -544,7 +544,9 @@ def connect_settings():
     """서버/클라이언트 연결 모드 설정 (로그인 전에도 접근 가능)."""
     if request.method == "POST":
         mode = request.form.get("mode")
-        if mode == "client":
+        if mode == "auto":
+            write_server_cfg("auto")              # 직원 PC: 서버 자동 탐색
+        elif mode == "client":
             url = normalize_server_url(request.form.get("server", ""))
             if not url:
                 flash("서버(관리자 PC) 주소를 올바르게 입력하세요.", "error")

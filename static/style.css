@@ -90,6 +90,15 @@ td.dt{font-size:12px;color:#334155;white-space:nowrap;line-height:1.3}
 td.dt .dt-time{font-size:10.5px;color:#94a3b8}
 .ipchg{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;
   padding:10px 12px;font-size:12.5px;line-height:1.5;margin:6px 0 10px}
+/* 서버 연결 설정: 서버/직원 두 가지 선택 버튼 */
+.choice-btn{display:block;width:100%;padding:16px;border:0;border-radius:12px;color:#fff;
+  font-weight:800;font-size:15px;cursor:pointer;margin-bottom:12px;line-height:1.5;text-align:center}
+.choice-btn small{display:block;font-weight:600;font-size:12px;opacity:.85;margin-top:2px}
+.choice-btn.server{background:linear-gradient(135deg,#6d28d9,#c026d3)}
+.choice-btn.client{background:#0ea5e9}
+.choice-btn:hover{filter:brightness(1.06)}
+.manual-toggle{text-align:center;margin:4px 0 0}
+.manual-toggle a{color:#9b93b5;font-size:12px;cursor:pointer;text-decoration:underline}
 .status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
 .divider2{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:16px 0}
 .divider2::before,.divider2::after{content:"";flex:1;height:1px;background:#e6e2f0}

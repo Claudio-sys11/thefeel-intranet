@@ -93,6 +93,11 @@ class ConfigApi:
         appmod.write_server_cfg("self")
         appmod.relaunch_app()
 
+    def use_auto(self):
+        """직원 PC: 서버 자동 탐색 모드로 설정 후 재시작."""
+        appmod.write_server_cfg("auto")
+        appmod.relaunch_app()
+
     def connect(self, addr):
         url = appmod.normalize_server_url(addr)
         if url:
@@ -217,49 +222,42 @@ CONFIG_HTML = """<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <style>
 *{box-sizing:border-box;font-family:'Malgun Gothic',sans-serif}
 body{margin:0;background:linear-gradient(135deg,#2a0a5e,#5b21b6);color:#fff;height:100vh;display:flex;align-items:center;justify-content:center}
-.card{background:#fff;color:#1e1b2e;border-radius:16px;padding:30px;width:380px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.card{background:#fff;color:#1e1b2e;border-radius:16px;padding:30px;width:360px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 h1{font-size:19px;margin:0 0 4px;text-align:center}
-.sub{text-align:center;color:#6b6480;font-size:13px;margin:0 0 20px}
-.err{background:#fee2e2;color:#991b1b;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px;white-space:pre-line}
-button{width:100%;padding:12px;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;color:#fff}
-.primary{background:linear-gradient(135deg,#6d28d9,#c026d3)}
-.alt{background:#475569;margin-top:6px}
-label{display:block;font-weight:700;font-size:13px;margin:16px 0 6px}
+.sub{text-align:center;color:#6b6480;font-size:13px;margin:0 0 22px}
+.err{background:#fee2e2;color:#991b1b;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:16px;white-space:pre-line}
+.choice{width:100%;padding:16px;border:0;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;color:#fff;margin-bottom:12px;line-height:1.5}
+.choice small{display:block;font-weight:600;font-size:12px;opacity:.85;margin-top:2px}
+.server{background:linear-gradient(135deg,#6d28d9,#c026d3)}
+.client{background:#0ea5e9}
+.choice:hover{filter:brightness(1.06)}
+.manual-link{text-align:center;margin-top:6px}
+.manual-link a{color:#9b93b5;font-size:12px;cursor:pointer;text-decoration:underline}
+label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px}
 input{width:100%;padding:11px;border:1px solid #e6e2f0;border-radius:10px;font-size:14px}
-.divider{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:18px 0}
-.divider::before,.divider::after{content:"";flex:1;height:1px;background:#e6e2f0}
-.ipbox{background:#f4f2f9;border-radius:8px;padding:8px 10px;font-size:12px;color:#6b6480;margin-top:8px;text-align:center}
-.find{background:#0ea5e9;margin-top:6px}
-.srvrow{display:flex;gap:8px}.srvrow input{flex:1}
-b{color:#5b21b6}
+.btn2{width:100%;padding:11px;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;color:#fff;background:#475569;margin-top:10px}
+#manual{display:none;margin-top:8px}
 </style></head><body>
 <div class="card">
-  <h1>The Feel Intranet 연결 설정</h1>
-  <p class="sub">이 PC를 어떻게 사용할지 한 번만 선택하세요</p>
+  <h1>The Feel Intranet</h1>
+  <p class="sub">이 PC를 어떻게 사용할까요?</p>
   __ERR__
-  <button class="primary" onclick="self_()">이 PC를 서버로 사용 (관리자 PC)</button>
-  <div class="ipbox">이 PC 주소: <b>__IP__:5000</b><br>직원에게 이 주소를 알려주세요</div>
-  <div class="divider">직원 PC는 아래</div>
-  <button class="find" id="findbtn" onclick="findSrv()">🔍 서버 자동 검색 (권장)</button>
-  <label>서버(관리자 PC) 주소</label>
-  <input id="srv" value="__VAL__" placeholder="자동 검색하거나 직접 입력 (예: 192.168.0.74)">
-  <button class="alt" onclick="conn()">이 주소의 서버에 접속</button>
+  <button class="choice server" onclick="self_()">🖥 이 PC를 서버로 사용<small>관리자 PC (직원이 접속하는 중앙 PC)</small></button>
+  <button class="choice client" id="cbtn" onclick="auto_()">💻 직원 PC로 사용<small>서버를 자동으로 찾아 연결합니다</small></button>
+  <div class="manual-link"><a onclick="toggleManual()">서버를 못 찾으면 직접 입력하기</a></div>
+  <div id="manual">
+    <label>서버(관리자 PC) 주소</label>
+    <input id="srv" value="__VAL__" placeholder="예: 192.168.0.74">
+    <button class="btn2" onclick="conn()">이 주소로 접속</button>
+  </div>
 </div>
 <script>
 function self_(){ try{ pywebview.api.use_self(); }catch(e){} }
+function auto_(){ var b=document.getElementById('cbtn'); b.innerHTML='💻 서버를 찾는 중...'; b.disabled=true; try{ pywebview.api.use_auto(); }catch(e){} }
+function toggleManual(){ var m=document.getElementById('manual'); m.style.display=(m.style.display==='block')?'none':'block'; }
 function conn(){ var v=document.getElementById('srv').value.trim();
-  if(!v){ alert('서버 주소를 입력하거나 "서버 자동 검색"을 누르세요'); return; }
+  if(!v){ alert('서버(관리자 PC) 주소를 입력하세요'); return; }
   try{ pywebview.api.connect(v); }catch(e){} }
-function findSrv(){
-  var b=document.getElementById('findbtn'); b.textContent='🔍 검색 중...'; b.disabled=true;
-  try{
-    pywebview.api.auto_detect().then(function(addr){
-      b.disabled=false;
-      if(addr){ document.getElementById('srv').value=addr; b.textContent='✅ 서버 발견: '+addr+' (접속 누르세요)'; }
-      else{ b.textContent='🔍 서버 자동 검색 (권장)'; alert('서버를 찾지 못했습니다.\\n서버 PC가 켜져 있고 같은 네트워크인지 확인 후 다시 시도하거나, 주소를 직접 입력하세요.'); }
-    });
-  }catch(e){ b.disabled=false; b.textContent='🔍 서버 자동 검색 (권장)'; }
-}
 </script></body></html>"""
 
 
@@ -285,45 +283,48 @@ def _run_server_mode():
 
 
 def _run_client_mode(url):
+    """직원 PC 접속. url=None 이면 순수 자동 탐색 모드.
+    저장 주소 → 자동 탐색(서버 IP 인식) → 기본 주소 순으로 시도."""
     global BASE
     appmod.updater.check_async()
+    default = getattr(version, "DEFAULT_SERVER_URL", "")
     try:
-        # 1) 저장된 주소로 바로 연결
+        # 1) 저장된 특정 주소(수동 입력)가 있으면 우선
         if url and reachable(url):
             BASE = url; launch_windows(); return
-        # 2) 실패 → 서버 IP가 바뀌었을 수 있음. LAN에서 자동 재탐색.
-        found = appmod.discover_server(timeout=2.5)
+        # 2) 서버 자동 탐색 (IP 자동 인식 — 서버 IP가 바뀌어도 다시 찾음)
+        found = appmod.discover_server(timeout=3.0)
         if found and reachable(found):
-            if found != url:
-                appmod.write_server_cfg(found)     # 바뀐 서버 IP 자동 반영
             BASE = found; launch_windows(); return
-        # 3) 그래도 못 찾으면 설정창 (자동 검색 버튼 포함)
-        BASE = url or found or f"http://127.0.0.1:{PORT}"
-        show_config(error="서버에 연결할 수 없습니다.\n서버 PC가 켜져 있고 같은 네트워크인지 확인 후\n아래 '서버 자동 검색'을 눌러보세요.",
-                    value=(urllib.parse.urlparse(url).hostname if url else ""))
+        # 3) 기본 서버 주소 폴백
+        if default and reachable(default):
+            BASE = default; launch_windows(); return
+        # 4) 못 찾음 → 설정창
+        BASE = url or found or default or f"http://127.0.0.1:{PORT}"
+        show_config(error="서버를 찾지 못했습니다.\n서버(관리자) PC가 켜져 있고 같은 네트워크인지\n확인 후 '직원 PC로 사용'을 다시 눌러주세요.")
     except Exception:
-        BASE = url or f"http://127.0.0.1:{PORT}"
+        BASE = url or default or f"http://127.0.0.1:{PORT}"
         webbrowser.open(BASE); threading.Event().wait()
 
 
 # ---------------------------------------------------------------- main
 def decide_mode(cfg, db_exists, is_server_pc, default_url):
     """모드 결정(부수효과 없음 → 테스트 용이).
-    반환: ("server", None) | ("client", url) | ("config", None)
+    반환: ("server", None) | ("client", url) | ("client", None=자동탐색) | ("config", None)
     """
-    # 1) 명시적 설정 우선 (서버 연결 설정에서 바꾼 경우)
+    # 1) 명시적 설정 우선 (서버 연결 설정에서 선택한 경우)
     if cfg == "self":
         return ("server", None)
+    if cfg == "auto":
+        return ("client", None)          # 직원 PC: 서버 자동 탐색 모드
     if cfg and cfg != "self":
-        return ("client", cfg)
+        return ("client", cfg)           # 특정 주소(수동 입력)
     # 2) 설정 없음(최초 실행) → 자동 결정
     #    - 이 PC가 '지정 서버 IP' 이거나 이미 데이터 보유 → 무조건 서버
-    #    - 그 외(직원 PC) → 기본 서버 주소로 자동 클라이언트(IP 입력 불필요)
+    #    - 그 외(직원 PC) → 서버 자동 탐색(IP 인식)
     if is_server_pc or db_exists:
         return ("server", None)
-    if default_url:
-        return ("client", default_url)
-    return ("config", None)
+    return ("client", None)              # 직원 PC 기본 = 자동 탐색
 
 
 def _main_impl():
@@ -338,8 +339,11 @@ def _main_impl():
             appmod.write_server_cfg("self")
         _run_server_mode(); return
     if mode == "client":
-        if cfg != url:
-            appmod.write_server_cfg(url)       # 직원 PC 기본값: 관리자 서버로 사전 설정
+        if url is None:                        # 자동 탐색 모드
+            if cfg != "auto":
+                appmod.write_server_cfg("auto")
+        elif cfg != url:                       # 특정 주소
+            appmod.write_server_cfg(url)
         _run_client_mode(url); return
 
     try:
