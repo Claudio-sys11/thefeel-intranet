@@ -83,6 +83,59 @@ _fh = logging.FileHandler(os.path.join(DATA_DIR, "app.log"), encoding="utf-8")
 _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 _root.addHandler(_fh)
 _root.setLevel(logging.INFO)
+# werkzeug 요청 로그 소음 줄여 실제 오류가 묻히지 않게 (오류는 그대로 기록됨)
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+# --- 크래시/예외 로깅 (흔적 없이 종료되는 문제 추적용) ---------------------
+import traceback as _tb
+import faulthandler as _fault
+
+CRASH_LOG = os.path.join(DATA_DIR, "crash.log")
+
+
+def log_event(where, detail=""):
+    """현재 예외(있으면)와 함께 crash.log 에 한 줄 기록. 흔적 없이 종료되는 문제 추적."""
+    try:
+        from datetime import datetime as _dt
+        with open(CRASH_LOG, "a", encoding="utf-8") as f:
+            f.write("\n===== %s =====\n[%s] %s\n" % (_dt.now().strftime("%Y-%m-%d %H:%M:%S"), where, detail))
+            ei = sys.exc_info()
+            if ei and ei[0]:
+                f.write("".join(_tb.format_exception(*ei)))
+    except Exception:
+        pass
+
+
+def _sys_excepthook(t, v, tb):
+    try:
+        from datetime import datetime as _dt
+        with open(CRASH_LOG, "a", encoding="utf-8") as f:
+            f.write("\n===== %s =====\n[uncaught:main]\n" % _dt.now().strftime("%Y-%m-%d %H:%M:%S"))
+            f.write("".join(_tb.format_exception(t, v, tb)))
+    except Exception:
+        pass
+
+
+def _thread_excepthook(a):
+    try:
+        from datetime import datetime as _dt
+        with open(CRASH_LOG, "a", encoding="utf-8") as f:
+            f.write("\n===== %s =====\n[uncaught:thread %s]\n" %
+                    (_dt.now().strftime("%Y-%m-%d %H:%M:%S"), getattr(a.thread, "name", "?")))
+            f.write("".join(_tb.format_exception(a.exc_type, a.exc_value, a.exc_traceback)))
+    except Exception:
+        pass
+
+
+sys.excepthook = _sys_excepthook
+try:
+    threading.excepthook = _thread_excepthook   # Py3.8+
+except Exception:
+    pass
+try:                                            # 네이티브(WebView2 등) 치명적 크래시 스택 덤프
+    _fault.enable(file=open(os.path.join(DATA_DIR, "fatal.log"), "a", encoding="utf-8"), all_threads=True)
+except Exception:
+    pass
 
 app = Flask(__name__,
             template_folder=resource_path("templates"),

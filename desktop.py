@@ -10,6 +10,7 @@
 """
 import os
 import sys
+import time
 import socket
 import threading
 import webbrowser
@@ -32,6 +33,33 @@ BASE = f"http://127.0.0.1:{PORT}"
 _login_win = None
 _main_win = None
 _switched = False
+_user_closing = False   # 사용자가 직접 창을 닫았는지(자동 재시작 여부 판단)
+
+
+def _should_restart():
+    """비정상 종료 시 자동 재시작 — 단, 짧은 시간 내 반복(크래시 루프) 방지."""
+    try:
+        path = os.path.join(appmod.DATA_DIR, "restart.cfg")
+        now = time.time()
+        times = []
+        if os.path.exists(path):
+            times = [float(x) for x in open(path).read().split() if x.strip()]
+        times = [t for t in times if now - t < 120]   # 최근 2분 내 기록만
+        times.append(now)
+        with open(path, "w") as f:
+            f.write(" ".join("%.0f" % t for t in times))
+        return len(times) <= 3                          # 2분 내 3회까지만 자동 재시작
+    except Exception:
+        return False
+
+
+def _crash_restart(where):
+    """비정상 종료 감지 → 로그 남기고 자동 재시작(루프 방지)."""
+    appmod.log_event(where, "비정상 종료 감지")
+    if getattr(sys, "frozen", False) and _should_restart():
+        appmod.log_event("auto-restart", "프로그램을 자동으로 다시 시작합니다")
+        appmod.relaunch_app()   # spawn 후 os._exit
+    os._exit(0)
 
 
 def reachable(base):
@@ -90,7 +118,10 @@ class ServerThread(threading.Thread):
         self.srv = make_server(HOST, PORT, appmod.app, threaded=True)
 
     def run(self):
-        self.srv.serve_forever()
+        try:
+            self.srv.serve_forever()
+        except Exception:
+            appmod.log_event("ServerThread", "내부 웹서버 오류")
 
 
 def start_server():
@@ -147,9 +178,16 @@ def _on_login_loaded():
         _show_main()
 
 
+def _on_closing(*args, **kwargs):
+    # 사용자가 창을 직접 닫음 → 정상 종료(자동 재시작 안 함)
+    global _user_closing
+    _user_closing = True
+
+
 def launch_windows():
-    global _login_win, _main_win
+    global _login_win, _main_win, _user_closing
     import webview
+    _user_closing = False
     _login_win = webview.create_window(
         TITLE, BASE, js_api=Api(),
         width=LOGIN_SIZE[0], height=LOGIN_SIZE[1],
@@ -159,7 +197,20 @@ def launch_windows():
         width=MAIN_SIZE[0], height=MAIN_SIZE[1],
         min_size=(1000, 660), hidden=True)
     _login_win.events.loaded += _on_login_loaded
-    webview.start()
+    # 메인 창의 닫기(X)만 '사용자 종료'로 간주 → 자동 재시작 안 함.
+    # (로그인 창은 로그인 성공 시 프로그램이 닫으므로 제외. 로그인 창의 X는 close_app→os._exit 라 start()가 반환되지 않음)
+    try:
+        _main_win.events.closing += _on_closing
+    except Exception:
+        pass
+    try:
+        webview.start()
+    except Exception:
+        _crash_restart("webview.start 예외")   # GUI 스레드 예외 → 재시작
+        return
+    # webview.start() 가 반환됨: 사용자가 닫았으면 정상 종료, 아니면 창이 사라진 것(크래시) → 재시작
+    if not _user_closing:
+        _crash_restart("창이 예기치 않게 닫힘(WebView 크래시 의심)")
 
 
 CONFIG_HTML = """<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
@@ -275,7 +326,7 @@ def decide_mode(cfg, db_exists, is_server_pc, default_url):
     return ("config", None)
 
 
-def main():
+def _main_impl():
     cfg = appmod.read_server_cfg()
     db_exists = os.path.exists(appmod.DB_PATH)
     default_url = getattr(version, "DEFAULT_SERVER_URL", "")
@@ -295,6 +346,13 @@ def main():
         show_config()
     except Exception:
         _run_server_mode()
+
+
+def main():
+    try:
+        _main_impl()
+    except Exception:
+        _crash_restart("main 치명적 오류")   # 최후 안전망: 로그 남기고 재시작
 
 
 if __name__ == "__main__":
