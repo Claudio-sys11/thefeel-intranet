@@ -333,20 +333,16 @@ def launch_windows():
         width=MAIN_SIZE[0], height=MAIN_SIZE[1],
         min_size=(1000, 660), hidden=True)
     _login_win.events.loaded += _on_login_loaded
-    # 메인 창의 닫기(X)만 '사용자 종료'로 간주 → 자동 재시작 안 함.
-    # (로그인 창은 로그인 성공 시 프로그램이 닫으므로 제외. 로그인 창의 X는 close_app→os._exit 라 start()가 반환되지 않음)
-    try:
-        _main_win.events.closing += _on_closing
-    except Exception:
-        pass
     try:
         webview.start()
     except Exception:
-        _crash_restart("webview.start 예외")   # GUI 스레드 예외 → 재시작
+        # GUI 표시 자체가 실패한 경우만 로그 후 1회 재시도(루프 방지 가드 포함)
+        appmod.log_event("webview.start 예외")
+        if getattr(sys, "frozen", False) and _should_restart():
+            appmod.relaunch_app()
         return
-    # webview.start() 가 반환됨: 사용자가 닫았으면 정상 종료, 아니면 창이 사라진 것(크래시) → 재시작
-    if not _user_closing:
-        _crash_restart("창이 예기치 않게 닫힘(WebView 크래시 의심)")
+    # 창을 닫으면 GUI만 종료(헤드리스 백그라운드 서버는 계속 살아 있어 직원 접속 유지).
+    # 예전의 '예기치 않게 닫힘 → 자동 재시작' 휴리스틱은 오판으로 재시작이 반복되는 문제가 있어 제거함.
 
 
 CONFIG_HTML = """<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
