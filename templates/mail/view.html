@@ -4,8 +4,8 @@
 <h2 class="page-title">{{ msg['subject'] }}</h2>
 <div class="doc-meta">
   <span><b>보낸 사람</b> {{ msg['sender_name'] }} ({{ msg['sender_dept'] or '-' }})</span>
-  <span><b>수신</b> {{ to_names|join(', ') if to_names else '-' }}</span>
-  {% if cc_names %}<span><b>참조</b> {{ cc_names|join(', ') }}</span>{% endif %}
+  <span><b>수신</b> {{ to_names|join(', ') if to_names else '-' }}{% if msg['ext_to'] %}{{ ', ' if to_names }}{{ msg['ext_to'] }} <small class="muted">(외부)</small>{% endif %}</span>
+  {% if cc_names or msg['ext_cc'] %}<span><b>참조</b> {{ cc_names|join(', ') }}{% if msg['ext_cc'] %}{{ ', ' if cc_names }}{{ msg['ext_cc'] }} <small class="muted">(외부)</small>{% endif %}</span>{% endif %}
   {% if bcc_names %}<span><b>숨은참조</b> {{ bcc_names|join(', ') }} <small class="muted">(발신자에게만 표시)</small></span>{% endif %}
   <span><b>보낸 시각</b> {{ msg['created_at'][:16] }}</span>
 </div>

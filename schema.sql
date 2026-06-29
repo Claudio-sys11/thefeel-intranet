@@ -82,12 +82,20 @@ CREATE TABLE IF NOT EXISTS leave_records (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- 앱 설정(키-값): SMTP 외부 발신 설정 등
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 -- 사내 메일 / 쪽지
 CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     sender_id  INTEGER NOT NULL,
     subject    TEXT    NOT NULL,
     body       TEXT,
+    ext_to     TEXT,                             -- 외부 수신 이메일(쉼표 구분)
+    ext_cc     TEXT,                             -- 외부 참조 이메일
     created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (sender_id) REFERENCES users(id)
 );

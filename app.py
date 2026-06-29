@@ -13,10 +13,13 @@ import glob
 import shutil
 import socket
 import sqlite3
+import smtplib
+import mimetypes
 import webbrowser
 import threading
 import subprocess
 import urllib.parse
+from email.message import EmailMessage
 from datetime import datetime, date
 from functools import wraps
 
@@ -482,6 +485,11 @@ def init_db():
         db.execute("ALTER TABLE leave_records ADD COLUMN updated_at TEXT")
     if "rcpt_type" not in _cols("message_recipients"):
         db.execute("ALTER TABLE message_recipients ADD COLUMN rcpt_type TEXT NOT NULL DEFAULT 'to'")
+    mcols = _cols("messages")
+    if "ext_to" not in mcols:
+        db.execute("ALTER TABLE messages ADD COLUMN ext_to TEXT")
+    if "ext_cc" not in mcols:
+        db.execute("ALTER TABLE messages ADD COLUMN ext_cc TEXT")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -988,6 +996,99 @@ def approval_cancel(doc_id):
     return redirect(url_for("approval_detail", doc_id=doc_id))
 
 
+# ---------------------------------------------------------------- 외부 메일(SMTP 발신)
+def get_setting(key, default=""):
+    try:
+        r = get_db().execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return r["value"] if r and r["value"] is not None else default
+    except Exception:
+        return default
+
+
+def set_setting(key, value):
+    get_db().execute("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)", (key, value or ""))
+
+
+def smtp_config():
+    return {
+        "host": get_setting("smtp_host"),
+        "port": int(get_setting("smtp_port", "587") or 587),
+        "security": get_setting("smtp_security", "tls"),   # tls | ssl | none
+        "user": get_setting("smtp_user"),
+        "password": get_setting("smtp_pass"),
+        "from_name": get_setting("smtp_from_name"),
+    }
+
+
+def smtp_configured():
+    c = smtp_config()
+    return bool(c["host"] and c["user"])
+
+
+def parse_emails(s):
+    import re
+    return [p.strip() for p in re.split(r"[,;\s]+", s or "") if p.strip() and "@" in p]
+
+
+def send_external_mail(to_addrs, cc_addrs, subject, body, attach_paths):
+    """SMTP로 외부 발송. (성공여부, 오류메시지) 반환."""
+    cfg = smtp_config()
+    if not cfg["host"] or not cfg["user"]:
+        return (False, "외부 메일(SMTP)이 설정되지 않았습니다. 관리자 → 외부 메일 설정에서 등록하세요.")
+    msg = EmailMessage()
+    msg["From"] = f'{cfg["from_name"]} <{cfg["user"]}>' if cfg["from_name"] else cfg["user"]
+    msg["To"] = ", ".join(to_addrs)
+    if cc_addrs:
+        msg["Cc"] = ", ".join(cc_addrs)
+    msg["Subject"] = subject
+    msg.set_content(body or "")
+    for path, fname in attach_paths:
+        try:
+            ctype, _ = mimetypes.guess_type(fname)
+            maintype, subtype = (ctype.split("/", 1) if ctype else ("application", "octet-stream"))
+            with open(path, "rb") as f:
+                msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=fname)
+        except Exception:
+            pass
+    try:
+        if cfg["security"] == "ssl":
+            srv = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=20)
+        else:
+            srv = smtplib.SMTP(cfg["host"], cfg["port"], timeout=20)
+            if cfg["security"] == "tls":
+                srv.starttls()
+        srv.login(cfg["user"], cfg["password"])
+        srv.send_message(msg, to_addrs=list(to_addrs) + list(cc_addrs))
+        srv.quit()
+        return (True, "")
+    except Exception as e:
+        return (False, str(e))
+
+
+@app.route("/admin/smtp", methods=["GET", "POST"])
+@admin_required
+def admin_smtp():
+    db = get_db()
+    if request.method == "POST":
+        action = request.form.get("action")
+        for k in ("smtp_host", "smtp_port", "smtp_security", "smtp_user", "smtp_from_name"):
+            set_setting(k, request.form.get(k, "").strip())
+        pw = request.form.get("smtp_pass", "")
+        if pw:                       # 비밀번호는 입력했을 때만 갱신(빈칸이면 기존 유지)
+            set_setting("smtp_pass", pw)
+        db.commit()
+        if action == "test":
+            cfg = smtp_config()
+            ok, err = send_external_mail([cfg["user"]], [], "[The Feel Intranet] SMTP 테스트",
+                                         "외부 메일 발송 설정이 정상 동작합니다.", [])
+            flash("테스트 메일을 보냈습니다. 받은 편지함을 확인하세요." if ok else f"테스트 실패: {err}",
+                  "ok" if ok else "error")
+        else:
+            flash("외부 메일(SMTP) 설정을 저장했습니다.", "ok")
+        return redirect(url_for("admin_smtp"))
+    return render_template("admin/smtp.html", cfg=smtp_config(), configured=smtp_configured())
+
+
 # ---------------------------------------------------------------- mail
 @app.route("/mail")
 @login_required
@@ -998,8 +1099,8 @@ def mail_inbox():
     if box == "sent":
         mails = db.execute("""
             SELECT m.*, GROUP_CONCAT(u.name, ', ') AS to_names FROM messages m
-            JOIN message_recipients mr ON mr.message_id=m.id
-            JOIN users u ON u.id=mr.recipient_id
+            LEFT JOIN message_recipients mr ON mr.message_id=m.id
+            LEFT JOIN users u ON u.id=mr.recipient_id
             WHERE m.sender_id=? GROUP BY m.id ORDER BY m.created_at DESC""", (uid,)).fetchall()
     else:
         mails = db.execute("""
@@ -1022,10 +1123,14 @@ def mail_compose():
         to = [r for r in request.form.getlist("to") if r]
         cc = [r for r in request.form.getlist("cc") if r]
         bcc = [r for r in request.form.getlist("bcc") if r]
-        if not subject or not to:
-            flash("제목과 받는 사람(수신)을 선택하세요.", "error")
-            return render_template("mail/compose.html", users=users, form=request.form)
-        cur = db.execute("INSERT INTO messages (sender_id, subject, body) VALUES (?,?,?)", (uid, subject, body))
+        ext_to = parse_emails(request.form.get("ext_to", ""))    # 외부 수신 이메일
+        ext_cc = parse_emails(request.form.get("ext_cc", ""))    # 외부 참조 이메일
+        if not subject or (not to and not ext_to):
+            flash("제목과 받는 사람(사내 수신 또는 외부 이메일)을 입력하세요.", "error")
+            return render_template("mail/compose.html", users=users, form=request.form,
+                                   smtp_on=smtp_configured())
+        cur = db.execute("INSERT INTO messages (sender_id, subject, body, ext_to, ext_cc) VALUES (?,?,?,?,?)",
+                         (uid, subject, body, ", ".join(ext_to), ", ".join(ext_cc)))
         mid = cur.lastrowid
         seen = set()
         for typ, ids in (("to", to), ("cc", cc), ("bcc", bcc)):
@@ -1052,9 +1157,19 @@ def mail_compose():
             except Exception:
                 pass
         db.commit()
-        flash("메일을 보냈습니다.", "ok")
+        # 외부 발송(SMTP)
+        if ext_to or ext_cc:
+            paths = [(os.path.join(ATTACH_DIR, a["stored_name"]), a["filename"])
+                     for a in db.execute("SELECT * FROM message_attachments WHERE message_id=?", (mid,)).fetchall()]
+            ok, err = send_external_mail(ext_to, ext_cc, subject, body, paths)
+            if ok:
+                flash("메일을 보냈습니다. (외부 발송 포함)", "ok")
+            else:
+                flash(f"사내 메일은 전송됐지만 외부 발송은 실패했습니다: {err}", "error")
+        else:
+            flash("메일을 보냈습니다.", "ok")
         return redirect(url_for("mail_inbox", box="sent"))
-    return render_template("mail/compose.html", users=users, form={})
+    return render_template("mail/compose.html", users=users, form={}, smtp_on=smtp_configured())
 
 
 @app.route("/mail/<int:msg_id>")

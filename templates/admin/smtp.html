@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}외부 메일 설정 · The Feel Intranet{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">외부 메일 설정 (SMTP 발신)
+    {% if configured %}<span class="tag" style="background:#dcfce7;color:#166534">설정됨</span>
+    {% else %}<span class="tag" style="background:#fee2e2;color:#991b1b">미설정</span>{% endif %}
+  </h2>
+  <a href="{{ url_for('mail_inbox') }}" class="btn">← 메일로</a>
+</div>
+<p class="muted">회사/대표 메일 계정 1개로 외부 주소에 <b>보내기(발신)</b>를 추가합니다. 받기(IMAP)는 포함되지 않습니다.</p>
+
+<form method="post" class="form">
+  <div class="row two">
+    <div><label>SMTP 서버</label><input type="text" name="smtp_host" value="{{ cfg['host'] }}" placeholder="예: smtp.gmail.com"></div>
+    <div><label>포트</label><input type="number" name="smtp_port" value="{{ cfg['port'] }}" placeholder="587"></div>
+  </div>
+  <div class="row">
+    <label>보안</label>
+    <select name="smtp_security">
+      <option value="tls" {{ 'selected' if cfg['security']=='tls' }}>TLS (STARTTLS, 보통 587)</option>
+      <option value="ssl" {{ 'selected' if cfg['security']=='ssl' }}>SSL (보통 465)</option>
+      <option value="none" {{ 'selected' if cfg['security']=='none' }}>없음</option>
+    </select>
+  </div>
+  <div class="row two">
+    <div><label>보내는 계정 (이메일)</label><input type="text" name="smtp_user" value="{{ cfg['user'] }}" placeholder="예: office@thefeel.co.kr"></div>
+    <div><label>발신자 표시 이름 <small>(선택)</small></label><input type="text" name="smtp_from_name" value="{{ cfg['from_name'] }}" placeholder="예: 더필코리아"></div>
+  </div>
+  <div class="row">
+    <label>비밀번호 / 앱 비밀번호 <small>(빈칸이면 기존 유지)</small></label>
+    <input type="password" name="smtp_pass" value="" placeholder="{{ '●●●●●● (등록됨)' if cfg['password'] else '메일 계정 비밀번호 또는 앱 비밀번호' }}">
+  </div>
+  <p class="hint" style="text-align:left">
+    ※ Gmail은 <b>앱 비밀번호</b>(2단계 인증 후 발급)를 사용하세요: <span class="muted">smtp.gmail.com / 587 / TLS</span><br>
+    ※ 네이버: <span class="muted">smtp.naver.com / 587 / TLS</span> · 다음: <span class="muted">smtp.daum.net / 465 / SSL</span>
+  </p>
+  <div class="actions">
+    <button class="btn primary" name="action" value="save">저장</button>
+    <button class="btn" name="action" value="test">저장 후 테스트 발송</button>
+  </div>
+</form>
+{% endblock %}
