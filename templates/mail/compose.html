@@ -5,28 +5,37 @@
   <h2 class="page-title">메일 쓰기</h2>
   {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_smtp') }}" class="btn">⚙ 외부 메일 설정</a>{% endif %}
 </div>
-<form method="post" class="form form-lr" enctype="multipart/form-data">
-  <div class="lr-row">
-    <label>발신</label>
-    <div class="lr-field">
-      <input type="text" value="{{ current_user['name'] }}{% if current_user['dept'] %} · {{ current_user['dept'] }}{% endif %}{% if current_user['position'] %} {{ current_user['position'] }}{% endif %} (본인)" disabled>
+<form method="post" class="form form-lr" enctype="multipart/form-data" style="max-width:1040px">
+  <div class="compose-2col">
+    <!-- 좌측: 발신/수신/참조/숨은참조/제목/첨부 -->
+    <div class="col-left">
+      <div class="lr-row">
+        <label>발신</label>
+        <div class="lr-field">
+          <input type="text" value="{{ current_user['name'] }}{% if current_user['dept'] %} · {{ current_user['dept'] }}{% endif %}{% if current_user['position'] %} {{ current_user['position'] }}{% endif %} (본인)" disabled>
+        </div>
+      </div>
+      <div class="lr-row">
+        <label>수신 <small>필수</small></label>
+        <div class="lr-field"><div class="recip-field" id="rf-to"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력 후 Enter" autocomplete="off"><div class="suggest" id="sg-to"></div></div></div>
+      </div>
+      <div class="lr-row">
+        <label>참조 <small>CC</small></label>
+        <div class="lr-field"><div class="recip-field" id="rf-cc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-cc"></div></div></div>
+      </div>
+      <div class="lr-row">
+        <label>숨은참조 <small>BCC</small></label>
+        <div class="lr-field"><div class="recip-field" id="rf-bcc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-bcc"></div></div></div>
+      </div>
+      <div class="lr-row"><label>제목</label><div class="lr-field"><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div></div>
+      <div class="lr-row"><label>파일 첨부 <small>여러 개 가능</small></label><div class="lr-field"><input type="file" name="attachments" multiple></div></div>
+    </div>
+    <!-- 우측: 내용 -->
+    <div class="col-right">
+      <label>내용</label>
+      <textarea name="body" placeholder="내용을 입력하세요">{{ form.get('body','') }}</textarea>
     </div>
   </div>
-  <div class="lr-row">
-    <label>수신 <small>필수</small></label>
-    <div class="lr-field"><div class="recip-field" id="rf-to"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력 후 Enter" autocomplete="off"><div class="suggest" id="sg-to"></div></div></div>
-  </div>
-  <div class="lr-row">
-    <label>참조 <small>CC</small></label>
-    <div class="lr-field"><div class="recip-field" id="rf-cc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-cc"></div></div></div>
-  </div>
-  <div class="lr-row">
-    <label>숨은참조 <small>BCC</small></label>
-    <div class="lr-field"><div class="recip-field" id="rf-bcc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-bcc"></div></div></div>
-  </div>
-  <div class="lr-row"><label>제목</label><div class="lr-field"><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div></div>
-  <div class="lr-row"><label>파일 첨부 <small>여러 개 가능</small></label><div class="lr-field"><input type="file" name="attachments" multiple></div></div>
-  <div class="lr-row"><label>내용</label><div class="lr-field"><textarea name="body" rows="11">{{ form.get('body','') }}</textarea></div></div>
   {% if not smtp_on %}<p class="lr-note">※ 외부(이메일) 발송은 관리자가 <b>외부 메일 설정(SMTP)</b>을 등록해야 작동합니다. 사내 직원에게는 그대로 전송됩니다.</p>{% endif %}
   <div class="actions">
     <button class="btn primary">보내기</button>

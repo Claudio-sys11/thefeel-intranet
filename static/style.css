@@ -138,6 +138,13 @@ td.dt .dt-time{font-size:10.5px;color:#94a3b8}
   .form-lr .lr-row>label{flex:none;text-align:left;padding-top:0}
   .form-lr .lr-row>label small{display:inline}
 }
+/* 메일 쓰기 2단 배열: 좌(머리말 항목) · 우(내용) */
+.compose-2col{display:flex;gap:22px;align-items:stretch}
+.compose-2col .col-left{flex:1 1 0;min-width:0}
+.compose-2col .col-right{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.compose-2col .col-right>label{font-weight:700;font-size:13px;margin:0 0 6px}
+.compose-2col .col-right textarea{flex:1;width:100%;min-height:420px;resize:vertical}
+@media(max-width:780px){ .compose-2col{flex-direction:column;gap:8px} .compose-2col .col-right textarea{min-height:240px} }
 /* 메일 수신자 입력(이름 검색 + 칩) */
 .recip-field{position:relative;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
   border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff;min-height:44px}
