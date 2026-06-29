@@ -28,12 +28,40 @@
         <div class="lr-field"><div class="recip-field" id="rf-bcc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-bcc"></div></div></div>
       </div>
       <div class="lr-row"><label>제목</label><div class="lr-field"><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div></div>
-      <div class="lr-row"><label>파일 첨부 <small>여러 개 가능</small></label><div class="lr-field"><input type="file" name="attachments" multiple></div></div>
+      <div class="lr-row"><label>파일 첨부 <small>끌어다 놓기·선택</small></label>
+        <div class="lr-field">
+          <div class="dropzone" id="dropzone">
+            <input type="file" name="attachments" id="fileinput" multiple hidden>
+            <div class="dz-text">📎 파일을 여기로 <b>끌어다 놓거나</b> <span class="dz-link">클릭하여 선택</span></div>
+            <ul class="dz-list" id="dzlist"></ul>
+          </div>
+        </div>
+      </div>
     </div>
-    <!-- 우측: 내용 -->
+    <!-- 우측: 내용 (서식 편집기) -->
     <div class="col-right">
       <label>내용</label>
-      <textarea name="body" placeholder="내용을 입력하세요">{{ form.get('body','') }}</textarea>
+      <div class="rte">
+        <div class="rte-tb">
+          <button type="button" data-cmd="bold" title="굵게"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="기울임"><i>I</i></button>
+          <button type="button" data-cmd="underline" title="밑줄"><u>U</u></button>
+          <button type="button" data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+          <select class="rte-font" title="글자 크기">
+            <option value="">크기</option><option value="2">작게</option><option value="3">보통</option><option value="5">크게</option><option value="6">아주 크게</option>
+          </select>
+          <label class="rte-color-l" title="글자색">🎨<input type="color" class="rte-color" value="#1e1b2e"></label>
+          <span class="rte-sep"></span>
+          <button type="button" data-cmd="justifyLeft" title="왼쪽 정렬">⯇</button>
+          <button type="button" data-cmd="justifyCenter" title="가운데 정렬">≡</button>
+          <button type="button" data-cmd="justifyRight" title="오른쪽 정렬">⯈</button>
+          <button type="button" data-cmd="insertUnorderedList" title="글머리표">•</button>
+          <button type="button" data-cmd="insertOrderedList" title="번호 목록">1.</button>
+          <button type="button" data-cmd="removeFormat" title="서식 지우기">⌫</button>
+        </div>
+        <div class="rte-editor" id="rte" contenteditable="true" data-ph="내용을 자유롭게 작성하세요"></div>
+      </div>
+      <input type="hidden" name="body" id="body-input">
     </div>
   </div>
   {% if not smtp_on %}<p class="lr-note">※ 외부(이메일) 발송은 관리자가 <b>외부 메일 설정(SMTP)</b>을 등록해야 작동합니다. 사내 직원에게는 그대로 전송됩니다.</p>{% endif %}
@@ -94,5 +122,50 @@ function initRecip(field){
   input.addEventListener('blur',function(){setTimeout(close,150);});
 }
 ['to','cc','bcc'].forEach(initRecip);
+
+// ===== 파일 첨부: 드래그&드롭 + 선택 =====
+(function(){
+  var dz=document.getElementById('dropzone'), fi=document.getElementById('fileinput'), dl=document.getElementById('dzlist');
+  var store=new DataTransfer();
+  function refresh(){
+    fi.files=store.files; dl.innerHTML='';
+    Array.prototype.forEach.call(store.files,function(f,i){
+      var li=document.createElement('li');
+      li.innerHTML='<span>📄 '+f.name+' <small>('+(f.size/1024).toFixed(1)+' KB)</small></span>';
+      var x=document.createElement('span'); x.className='dz-x'; x.textContent='✕';
+      x.onclick=function(ev){ ev.stopPropagation();
+        var nd=new DataTransfer();
+        Array.prototype.forEach.call(store.files,function(g,j){ if(j!==i) nd.items.add(g); });
+        store=nd; refresh();
+      };
+      li.appendChild(x); dl.appendChild(li);
+    });
+  }
+  function addFiles(files){ Array.prototype.forEach.call(files,function(f){ store.items.add(f); }); refresh(); }
+  dz.addEventListener('click',function(e){ if(e.target.closest('.dz-x'))return; fi.click(); });
+  fi.addEventListener('change',function(){
+    var picked=Array.prototype.slice.call(fi.files);
+    // change 후 fi.files엔 새로 고른 것만 → store에 합치고 다시 반영
+    if(picked.length){ addFiles(picked); }
+  });
+  ['dragenter','dragover'].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.add('drag'); }); });
+  ['dragleave','dragend'].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.remove('drag'); }); });
+  dz.addEventListener('drop',function(e){ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer&&e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+})();
+
+// ===== 내용: 서식 편집기(네이버 메일형) =====
+(function(){
+  var rte=document.getElementById('rte');
+  document.querySelectorAll('.rte-tb [data-cmd]').forEach(function(b){
+    b.addEventListener('mousedown',function(e){ e.preventDefault(); });   // 선택 유지
+    b.addEventListener('click',function(){ rte.focus(); try{ document.execCommand(b.getAttribute('data-cmd'),false,null); }catch(e){} });
+  });
+  var fontSel=document.querySelector('.rte-font');
+  if(fontSel){ fontSel.addEventListener('mousedown',function(){ }); fontSel.addEventListener('change',function(){ rte.focus(); if(this.value){ try{document.execCommand('fontSize',false,this.value);}catch(e){} } this.value=''; }); }
+  var colorIn=document.querySelector('.rte-color');
+  if(colorIn){ colorIn.addEventListener('input',function(){ rte.focus(); try{ document.execCommand('foreColor',false,this.value); }catch(e){} }); }
+  var form=document.querySelector('form');
+  form.addEventListener('submit',function(){ document.getElementById('body-input').value=rte.innerHTML; });
+})();
 </script>
 {% endblock %}

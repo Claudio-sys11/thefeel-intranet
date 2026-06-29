@@ -1030,6 +1030,24 @@ def parse_emails(s):
     return [p.strip() for p in re.split(r"[,;\s]+", s or "") if p.strip() and "@" in p]
 
 
+def sanitize_html(html):
+    """메일 본문(서식 편집기 HTML) 정화 — 스크립트/이벤트/위험 태그 제거(XSS 방지)."""
+    import re
+    if not html:
+        return ""
+    # 위험 태그 블록 제거
+    html = re.sub(r"(?is)<(script|style|iframe|object|embed|link|meta)[^>]*>.*?</\1>", "", html)
+    html = re.sub(r"(?is)<(script|style|iframe|object|embed|link|meta)[^>]*/?>", "", html)
+    # on* 이벤트 핸들러 속성 제거
+    html = re.sub(r'(?i)\son\w+\s*=\s*"[^"]*"', "", html)
+    html = re.sub(r"(?i)\son\w+\s*=\s*'[^']*'", "", html)
+    html = re.sub(r"(?i)\son\w+\s*=\s*[^\s>]+", "", html)
+    # javascript: URL 제거
+    html = re.sub(r'(?i)(href|src)\s*=\s*"\s*javascript:[^"]*"', r'\1="#"', html)
+    html = re.sub(r"(?i)(href|src)\s*=\s*'\s*javascript:[^']*'", r"\1='#'", html)
+    return html.strip()
+
+
 def send_external_mail(to_addrs, cc_addrs, bcc_addrs, subject, body, attach_paths):
     """SMTP로 외부 발송. (성공여부, 오류메시지) 반환."""
     cfg = smtp_config()
@@ -1041,7 +1059,11 @@ def send_external_mail(to_addrs, cc_addrs, bcc_addrs, subject, body, attach_path
     if cc_addrs:
         msg["Cc"] = ", ".join(cc_addrs)            # 숨은참조(bcc)는 헤더에 넣지 않음
     msg["Subject"] = subject
-    msg.set_content(body or "")
+    import re as _re
+    plain = _re.sub(r"(?is)<[^>]+>", "", body or "").strip()   # HTML→평문(대체본문)
+    msg.set_content(plain or " ")
+    if body and "<" in body:
+        msg.add_alternative(body, subtype="html")               # 서식 본문(HTML)
     for path, fname in attach_paths:
         try:
             ctype, _ = mimetypes.guess_type(fname)
@@ -1119,7 +1141,7 @@ def mail_compose():
     users = db.execute("SELECT id, name, dept, position FROM users WHERE is_active=1 AND id!=? ORDER BY dept, name", (uid,)).fetchall()
     if request.method == "POST":
         subject = request.form.get("subject", "").strip()
-        body = request.form.get("body", "").strip()
+        body = sanitize_html(request.form.get("body", ""))   # 서식 편집기 HTML 정화
         to = [r for r in request.form.getlist("to") if r]
         cc = [r for r in request.form.getlist("cc") if r]
         bcc = [r for r in request.form.getlist("bcc") if r]

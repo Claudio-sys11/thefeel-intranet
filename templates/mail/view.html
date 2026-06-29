@@ -20,7 +20,7 @@
   </ul>
 </div>
 {% endif %}
-<div class="content-box mail-body">{{ msg['body'] or '' }}</div>
+<div class="content-box mail-body">{{ (msg['body'] or '')|safe }}</div>
 <div class="actions">
   <a href="{{ url_for('mail_compose') }}" class="btn">새 메일</a>
   {% if msg['sender_id'] != current_user['id'] %}
