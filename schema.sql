@@ -75,9 +75,10 @@ CREATE TABLE IF NOT EXISTS leave_records (
     end_date   TEXT,                              -- 종료일 (YYYY-MM-DD)
     days       REAL    NOT NULL DEFAULT 0,        -- 사용 일수
     reason     TEXT,                              -- 사유
-    status     TEXT    NOT NULL DEFAULT 'pending',-- pending(상신중) | approved(결재완료)
+    status     TEXT    NOT NULL DEFAULT 'adjusted',-- adjusted(조정 기록, 즉시 반영)
     created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
     approved_at TEXT,
+    updated_at TEXT,                              -- 수정 일시
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -95,11 +96,22 @@ CREATE TABLE IF NOT EXISTS message_recipients (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     message_id   INTEGER NOT NULL,
     recipient_id INTEGER NOT NULL,
+    rcpt_type    TEXT    NOT NULL DEFAULT 'to',   -- to(수신) | cc(참조) | bcc(숨은참조)
     is_read      INTEGER NOT NULL DEFAULT 0,
     read_at      TEXT,
     deleted_by_recipient INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (message_id)   REFERENCES messages(id) ON DELETE CASCADE,
     FOREIGN KEY (recipient_id) REFERENCES users(id)
+);
+
+-- 메일 첨부파일
+CREATE TABLE IF NOT EXISTS message_attachments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id  INTEGER NOT NULL,
+    filename    TEXT    NOT NULL,                 -- 원본 파일명
+    stored_name TEXT    NOT NULL,                 -- 저장 파일명(attachments 폴더)
+    size        INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
 );
 
 -- 공지사항

@@ -108,6 +108,26 @@ td.dt .dt-time{font-size:10.5px;color:#94a3b8}
 .restart-track{position:relative;background:#e6e2f0;border-radius:999px;height:10px;width:200px;overflow:hidden}
 .restart-fill{height:10px;width:0;background:linear-gradient(90deg,#6d28d9,#c026d3);transition:width .25s}
 #rpct{font-size:12px;font-weight:800;color:#5b21b6;min-width:42px}
+/* 모달 팝업(결재 양식 선택) */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:50;background:rgba(20,10,40,.5);
+  align-items:center;justify-content:center;padding:20px}
+.modal-card{background:#fff;border-radius:16px;padding:24px;width:480px;max-width:100%;
+  box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.modal-head h3{margin:0;font-size:18px}
+.modal-x{border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-card{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  padding:18px 12px;border:1px solid var(--line);border-radius:12px;color:var(--text);background:#fff;
+  transition:transform .12s,border-color .12s,background .12s}
+.form-card:hover{border-color:var(--primary);background:var(--bg);text-decoration:none;transform:translateY(-2px)}
+.form-card .fc-ic{font-size:26px}
+.form-card b{font-size:15px}
+.form-card small{color:var(--muted);font-size:12px}
+/* 메일 첨부파일 */
+.attach-box{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:0 0 14px}
+.attach-box ul{margin:8px 0 0;padding-left:18px}
+.attach-box li{margin:3px 0}
 .status-radio{display:flex;gap:22px;align-items:center;padding:6px 0}
 .divider2{display:flex;align-items:center;gap:10px;color:#9b93b5;font-size:12px;margin:16px 0}
 .divider2::before,.divider2::after{content:"";flex:1;height:1px;background:#e6e2f0}

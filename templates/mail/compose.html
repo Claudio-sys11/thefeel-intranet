@@ -2,15 +2,32 @@
 {% block title %}메일 쓰기 · The Feel Intranet{% endblock %}
 {% block content %}
 <h2 class="page-title">메일 쓰기</h2>
-<form method="post" class="form">
+<form method="post" class="form" enctype="multipart/form-data">
   <div class="row">
-    <label>받는 사람 <small>(여러 명 선택 가능, Ctrl/Shift)</small></label>
-    <select name="recipients" multiple size="6">
+    <label>발신자</label>
+    <input type="text" value="{{ current_user['name'] }}{% if current_user['dept'] %} · {{ current_user['dept'] }}{% endif %}{% if current_user['position'] %} {{ current_user['position'] }}{% endif %} (본인)" disabled>
+  </div>
+  <div class="row">
+    <label>수신 <small>(필수 · 여러 명 선택 Ctrl/Shift)</small></label>
+    <select name="to" multiple size="5">
+      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="row">
+    <label>참조 (CC) <small>(선택)</small></label>
+    <select name="cc" multiple size="4">
+      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="row">
+    <label>숨은참조 (BCC) <small>(선택 · 다른 수신자에게 보이지 않음)</small></label>
+    <select name="bcc" multiple size="4">
       {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
     </select>
   </div>
   <div class="row"><label>제목</label><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div>
-  <div class="row"><label>내용</label><textarea name="body" rows="12">{{ form.get('body','') }}</textarea></div>
+  <div class="row"><label>파일 첨부 <small>(여러 개 가능)</small></label><input type="file" name="attachments" multiple></div>
+  <div class="row"><label>내용</label><textarea name="body" rows="11">{{ form.get('body','') }}</textarea></div>
   <div class="actions">
     <button class="btn primary">보내기</button>
     <a href="{{ url_for('mail_inbox') }}" class="btn">취소</a>

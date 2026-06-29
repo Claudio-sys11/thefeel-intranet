@@ -22,9 +22,10 @@ from functools import wraps
 
 from flask import (
     Flask, g, session, request, redirect, url_for,
-    render_template, flash, abort, jsonify
+    render_template, flash, abort, jsonify, send_file
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 # PyInstaller(frozen) 환경에서 OpenSSL scrypt 미지원으로 로그인이 실패하는 문제를
 # 피하기 위해 항상 이식성 좋은 pbkdf2 방식으로 해시한다.
@@ -72,6 +73,7 @@ else:
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "intranet.db")
 BACKUP_DIR = os.path.join(DATA_DIR, "backups")
+ATTACH_DIR = os.path.join(DATA_DIR, "attachments")   # 메일 첨부파일 저장
 SERVER_CFG = os.path.join(DATA_DIR, "server.cfg")
 
 # 파일 로깅 (frozen/windowed 환경에서 오류 추적용) - 핸들러 강제 부착
@@ -473,6 +475,13 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN last_login TEXT")   # 최근 접속(로그인) 일시
     if "used_manual" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN used_manual REAL NOT NULL DEFAULT 0")  # 연차 사용(수기 입력)
+    # 다른 테이블 컬럼 마이그레이션 (기존 DB 호환)
+    def _cols(t):
+        return [r[1] for r in db.execute("PRAGMA table_info(%s)" % t)]
+    if "updated_at" not in _cols("leave_records"):
+        db.execute("ALTER TABLE leave_records ADD COLUMN updated_at TEXT")
+    if "rcpt_type" not in _cols("message_recipients"):
+        db.execute("ALTER TABLE message_recipients ADD COLUMN rcpt_type TEXT NOT NULL DEFAULT 'to'")
     # 로그인 ID는 대문자만 사용 → 기존 username 대문자로 통일
     db.execute("UPDATE users SET username = UPPER(username) WHERE username <> UPPER(username)")
     # 기존 전화번호도 000-0000-0000 형식으로 정리(하이픈 없는 것만)
@@ -1010,14 +1019,38 @@ def mail_compose():
     if request.method == "POST":
         subject = request.form.get("subject", "").strip()
         body = request.form.get("body", "").strip()
-        recipients = [r for r in request.form.getlist("recipients") if r]
-        if not subject or not recipients:
-            flash("제목과 받는 사람을 선택하세요.", "error")
+        to = [r for r in request.form.getlist("to") if r]
+        cc = [r for r in request.form.getlist("cc") if r]
+        bcc = [r for r in request.form.getlist("bcc") if r]
+        if not subject or not to:
+            flash("제목과 받는 사람(수신)을 선택하세요.", "error")
             return render_template("mail/compose.html", users=users, form=request.form)
         cur = db.execute("INSERT INTO messages (sender_id, subject, body) VALUES (?,?,?)", (uid, subject, body))
         mid = cur.lastrowid
-        for rid in recipients:
-            db.execute("INSERT INTO message_recipients (message_id, recipient_id) VALUES (?,?)", (mid, int(rid)))
+        seen = set()
+        for typ, ids in (("to", to), ("cc", cc), ("bcc", bcc)):
+            for rid in ids:
+                if rid in seen:        # 같은 사람 중복 수신 방지
+                    continue
+                seen.add(rid)
+                db.execute("INSERT INTO message_recipients (message_id, recipient_id, rcpt_type) VALUES (?,?,?)",
+                           (mid, int(rid), typ))
+        # 파일 첨부
+        os.makedirs(ATTACH_DIR, exist_ok=True)
+        for f in request.files.getlist("attachments"):
+            if not f or not f.filename:
+                continue
+            orig = f.filename
+            safe = secure_filename(orig) or "file"
+            stored = f"{mid}_{datetime.now().strftime('%H%M%S%f')}_{safe}"
+            path = os.path.join(ATTACH_DIR, stored)
+            try:
+                f.save(path)
+                size = os.path.getsize(path)
+                db.execute("INSERT INTO message_attachments (message_id, filename, stored_name, size) VALUES (?,?,?,?)",
+                           (mid, orig, stored, size))
+            except Exception:
+                pass
         db.commit()
         flash("메일을 보냈습니다.", "ok")
         return redirect(url_for("mail_inbox", box="sent"))
@@ -1033,16 +1066,44 @@ def mail_view(msg_id):
                         FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=?""", (msg_id,)).fetchone()
     if not msg:
         abort(404)
-    recips = db.execute("""SELECT u.name FROM message_recipients mr JOIN users u ON u.id=mr.recipient_id
-                           WHERE mr.message_id=?""", (msg_id,)).fetchall()
+    allr = db.execute("""SELECT u.name, mr.rcpt_type FROM message_recipients mr JOIN users u ON u.id=mr.recipient_id
+                         WHERE mr.message_id=? ORDER BY mr.id""", (msg_id,)).fetchall()
     mr = db.execute("SELECT * FROM message_recipients WHERE message_id=? AND recipient_id=?", (msg_id, uid)).fetchone()
-    if msg["sender_id"] != uid and not mr:
+    is_sender = (msg["sender_id"] == uid)
+    if not is_sender and not mr:
         abort(403)
     if mr and not mr["is_read"]:
         db.execute("UPDATE message_recipients SET is_read=1, read_at=? WHERE id=?",
                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), mr["id"]))
         db.commit()
-    return render_template("mail/view.html", msg=msg, recips=recips)
+    to_names = [r["name"] for r in allr if r["rcpt_type"] == "to"]
+    cc_names = [r["name"] for r in allr if r["rcpt_type"] == "cc"]
+    # 숨은참조는 발신자에게만 표시(수신자에게는 비공개)
+    bcc_names = [r["name"] for r in allr if r["rcpt_type"] == "bcc"] if is_sender else []
+    attachments = db.execute("SELECT * FROM message_attachments WHERE message_id=?", (msg_id,)).fetchall()
+    return render_template("mail/view.html", msg=msg, to_names=to_names, cc_names=cc_names,
+                           bcc_names=bcc_names, attachments=attachments, is_sender=is_sender)
+
+
+@app.route("/mail/attach/<int:aid>")
+@login_required
+def mail_attach(aid):
+    db = get_db()
+    uid = current_user()["id"]
+    a = db.execute("""SELECT a.*, m.sender_id FROM message_attachments a
+                      JOIN messages m ON m.id=a.message_id WHERE a.id=?""", (aid,)).fetchone()
+    if not a:
+        abort(404)
+    # 발신자이거나 수신자만 다운로드 가능
+    allowed = (a["sender_id"] == uid) or db.execute(
+        "SELECT 1 FROM message_recipients WHERE message_id=? AND recipient_id=?",
+        (a["message_id"], uid)).fetchone()
+    if not allowed:
+        abort(403)
+    path = os.path.join(ATTACH_DIR, a["stored_name"])
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, as_attachment=True, download_name=a["filename"])
 
 
 @app.route("/mail/<int:msg_id>/delete", methods=["POST"])
@@ -1060,8 +1121,8 @@ def mail_delete(msg_id):
 # ---------------------------------------------------------------- leave
 def leave_summary(uid):
     """연차 부여/사용/잔여 계산.
-    사용 = 수기입력(used_manual) + 승인된 휴가신청(leave_requests) + 결재완료된 연차관리 기록(leave_records)
-    상신중 = 결재 대기중인 휴가신청 + 연차관리 기록"""
+    사용 = 수기입력(used_manual) + 승인된 휴가신청(leave_requests) + 연차관리 조정 기록(leave_records, 즉시 반영)
+    상신중 = 결재 대기중인 휴가신청(leave_requests)"""
     db = get_db()
     u = db.execute("SELECT annual_leave, used_manual FROM users WHERE id=?", (uid,)).fetchone()
     total = u["annual_leave"] if u else 0
@@ -1070,16 +1131,14 @@ def leave_summary(uid):
         SELECT COALESCE(SUM(lr.days),0) FROM leave_requests lr
         JOIN documents d ON d.id=lr.doc_id
         WHERE lr.user_id=? AND d.status='approved' AND lr.leave_type!='sick'""", (uid,)).fetchone()[0]
-    pending_req = db.execute("""
+    pending = db.execute("""
         SELECT COALESCE(SUM(lr.days),0) FROM leave_requests lr
         JOIN documents d ON d.id=lr.doc_id
         WHERE lr.user_id=? AND d.status='pending' AND lr.leave_type!='sick'""", (uid,)).fetchone()[0]
+    # 연차관리 조정 기록은 상신/결재 없이 즉시 사용에 반영
     used_rec = db.execute(
-        "SELECT COALESCE(SUM(days),0) FROM leave_records WHERE user_id=? AND status='approved'", (uid,)).fetchone()[0]
-    pending_rec = db.execute(
-        "SELECT COALESCE(SUM(days),0) FROM leave_records WHERE user_id=? AND status='pending'", (uid,)).fetchone()[0]
+        "SELECT COALESCE(SUM(days),0) FROM leave_records WHERE user_id=?", (uid,)).fetchone()[0]
     used = manual + used_req + used_rec
-    pending = pending_req + pending_rec
     return {"total": total, "manual": manual, "used": used, "pending": pending,
             "remain": total - used}
 
@@ -1184,34 +1243,51 @@ def leave_admin_add(uid):
     if not start:
         flash("시작일을 입력하세요.", "error")
         return redirect(url_for("leave_admin_detail", uid=uid))
-    db.execute("""INSERT INTO leave_records (user_id, start_date, end_date, days, reason, status)
-                  VALUES (?,?,?,?,?,'pending')""", (uid, start, end, days, reason))
+    db.execute("""INSERT INTO leave_records (user_id, start_date, end_date, days, reason, status, created_at)
+                  VALUES (?,?,?,?,?,'adjusted',datetime('now','localtime'))""",
+               (uid, start, end, days, reason))
     db.commit()
-    flash("휴가 기록을 상신했습니다. (상신중)", "ok")
+    flash("연차 조정 기록을 추가했습니다. (사용에 즉시 반영)", "ok")
     return redirect(url_for("leave_admin_detail", uid=uid))
 
 
-@app.route("/leave/admin/record/<int:rid>/<action>", methods=["POST"])
+@app.route("/leave/admin/record/<int:rid>/edit", methods=["POST"])
 @leave_admin_required
-def leave_admin_record(rid, action):
+def leave_admin_record_edit(rid):
     db = get_db()
     rec = db.execute("SELECT * FROM leave_records WHERE id=?", (rid,)).fetchone()
     if not rec:
         abort(404)
     uid = rec["user_id"]
-    if action == "approve":
-        db.execute("UPDATE leave_records SET status='approved', approved_at=datetime('now','localtime') WHERE id=?", (rid,))
-        flash("결재 완료 처리했습니다. (결재완료)", "ok")
-    elif action == "reopen":
-        db.execute("UPDATE leave_records SET status='pending', approved_at=NULL WHERE id=?", (rid,))
-        flash("상신중으로 되돌렸습니다.", "ok")
-    elif action == "delete":
-        db.execute("DELETE FROM leave_records WHERE id=?", (rid,))
-        flash("기록을 삭제했습니다.", "ok")
-    else:
-        abort(400)
+    start = (request.form.get("start_date") or "").strip()
+    end = (request.form.get("end_date") or "").strip() or start
+    reason = (request.form.get("reason") or "").strip()
+    try:
+        days = float(request.form.get("days") or 0)
+        if days <= 0 or not start:
+            raise ValueError
+    except (TypeError, ValueError):
+        flash("시작일과 0보다 큰 사용 일수를 입력하세요.", "error")
+        return redirect(url_for("leave_admin_detail", uid=uid))
+    db.execute("""UPDATE leave_records SET start_date=?, end_date=?, days=?, reason=?,
+                  updated_at=datetime('now','localtime') WHERE id=?""",
+               (start, end, days, reason, rid))
     db.commit()
+    flash("조정 기록을 수정했습니다. (수정 일시 기록)", "ok")
     return redirect(url_for("leave_admin_detail", uid=uid))
+
+
+@app.route("/leave/admin/record/<int:rid>/delete", methods=["POST"])
+@leave_admin_required
+def leave_admin_record_delete(rid):
+    db = get_db()
+    rec = db.execute("SELECT user_id FROM leave_records WHERE id=?", (rid,)).fetchone()
+    if not rec:
+        abort(404)
+    db.execute("DELETE FROM leave_records WHERE id=?", (rid,))
+    db.commit()
+    flash("조정 기록을 삭제했습니다.", "ok")
+    return redirect(url_for("leave_admin_detail", uid=rec["user_id"]))
 
 
 # ---------------------------------------------------------------- admin

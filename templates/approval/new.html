@@ -1,17 +1,28 @@
 {% extends "base.html" %}
 {% block title %}결재 상신 · The Feel Intranet{% endblock %}
 {% block content %}
-<h2 class="page-title">결재 상신</h2>
+{% set sel = form.get('doc_type') or request.args.get('type') or 'general' %}
+<div class="page-head">
+  <h2 class="page-title">결재 상신 <span class="tag" style="font-size:13px;vertical-align:middle">{{ DOC_TYPES.get(sel, sel) }}</span></h2>
+  <button type="button" class="btn" onclick="document.getElementById('typeModal').style.display='flex'">양식 변경</button>
+</div>
+
+<!-- 양식 변경 팝업 -->
+<div class="modal-overlay" id="typeModal" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <div class="modal-head"><h3>결재 양식 선택</h3>
+      <button type="button" class="modal-x" onclick="document.getElementById('typeModal').style.display='none'">✕</button></div>
+    <div class="form-grid">
+      <a class="form-card" href="{{ url_for('approval_new', type='general') }}"><span class="fc-ic">📝</span><b>일반품의</b><small>일반 기안·품의</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='expense') }}"><span class="fc-ic">💳</span><b>지출결의</b><small>비용 지출 결의</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='purchase') }}"><span class="fc-ic">🛒</span><b>구매요청</b><small>물품 구매 요청</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='leave') }}"><span class="fc-ic">🏖</span><b>휴가신청</b><small>연차·반차·병가</small></a>
+    </div>
+  </div>
+</div>
 
 <form method="post" class="form" id="docform">
-  <div class="row">
-    <label>문서 유형</label>
-    <select name="doc_type" id="doc_type" onchange="toggleLeave()">
-      {% for k, v in DOC_TYPES.items() %}
-      <option value="{{ k }}" {{ 'selected' if form.get('doc_type')==k or (request.args.get('type')==k and not form) }}>{{ v }}</option>
-      {% endfor %}
-    </select>
-  </div>
+  <input type="hidden" name="doc_type" id="doc_type" value="{{ sel }}">
 
   <div class="row">
     <label>제목</label>

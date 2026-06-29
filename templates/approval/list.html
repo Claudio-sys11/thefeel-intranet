@@ -3,7 +3,24 @@
 {% block content %}
 <div class="page-head">
   <h2 class="page-title">전자결재</h2>
-  <a href="{{ url_for('approval_new') }}" class="btn primary">＋ 결재 상신</a>
+  <button type="button" class="btn primary" onclick="document.getElementById('formModal').style.display='flex'">＋ 결재 상신</button>
+</div>
+
+<!-- 양식 선택 팝업 -->
+<div class="modal-overlay" id="formModal" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>결재 양식 선택</h3>
+      <button type="button" class="modal-x" onclick="document.getElementById('formModal').style.display='none'">✕</button>
+    </div>
+    <p class="muted" style="margin:0 0 16px">작성할 문서 양식을 선택하면 작성 화면으로 이동합니다.</p>
+    <div class="form-grid">
+      <a class="form-card" href="{{ url_for('approval_new', type='general') }}"><span class="fc-ic">📝</span><b>일반품의</b><small>일반 기안·품의</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='expense') }}"><span class="fc-ic">💳</span><b>지출결의</b><small>비용 지출 결의</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='purchase') }}"><span class="fc-ic">🛒</span><b>구매요청</b><small>물품 구매 요청</small></a>
+      <a class="form-card" href="{{ url_for('approval_new', type='leave') }}"><span class="fc-ic">🏖</span><b>휴가신청</b><small>연차·반차·병가</small></a>
+    </div>
+  </div>
 </div>
 
 <div class="tabs">

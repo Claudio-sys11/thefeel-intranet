@@ -4,9 +4,22 @@
 <h2 class="page-title">{{ msg['subject'] }}</h2>
 <div class="doc-meta">
   <span><b>보낸 사람</b> {{ msg['sender_name'] }} ({{ msg['sender_dept'] or '-' }})</span>
-  <span><b>받는 사람</b> {% for r in recips %}{{ r['name'] }}{{ ', ' if not loop.last }}{% endfor %}</span>
+  <span><b>수신</b> {{ to_names|join(', ') if to_names else '-' }}</span>
+  {% if cc_names %}<span><b>참조</b> {{ cc_names|join(', ') }}</span>{% endif %}
+  {% if bcc_names %}<span><b>숨은참조</b> {{ bcc_names|join(', ') }} <small class="muted">(발신자에게만 표시)</small></span>{% endif %}
   <span><b>보낸 시각</b> {{ msg['created_at'][:16] }}</span>
 </div>
+{% if attachments %}
+<div class="attach-box">
+  <b>📎 첨부파일 ({{ attachments|length }})</b>
+  <ul>
+    {% for a in attachments %}
+    <li><a href="{{ url_for('mail_attach', aid=a['id']) }}">{{ a['filename'] }}</a>
+      <span class="muted">({{ (a['size']/1024)|round(1) }} KB)</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 <div class="content-box mail-body">{{ msg['body'] or '' }}</div>
 <div class="actions">
   <a href="{{ url_for('mail_compose') }}" class="btn">새 메일</a>
