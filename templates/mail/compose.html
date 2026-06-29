@@ -5,7 +5,7 @@
   <h2 class="page-title">메일 쓰기</h2>
   {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_smtp') }}" class="btn">⚙ 외부 메일 설정</a>{% endif %}
 </div>
-<form method="post" class="form form-lr" enctype="multipart/form-data" style="max-width:1180px">
+<form method="post" class="form form-lr" enctype="multipart/form-data" style="max-width:none">
   <div class="compose-2col">
     <!-- 좌측: 발신/수신/참조/숨은참조/제목/첨부 -->
     <div class="col-left">
