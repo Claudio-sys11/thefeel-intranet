@@ -27,7 +27,6 @@
         <label>숨은참조 <small>BCC</small></label>
         <div class="lr-field"><div class="recip-field" id="rf-bcc"><input type="text" class="recip-input" placeholder="이름 검색 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-bcc"></div></div></div>
       </div>
-      <div class="lr-row"><label>제목</label><div class="lr-field"><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div></div>
       <div class="lr-row"><label>파일 첨부 <small>끌어다 놓기·선택</small></label>
         <div class="lr-field">
           <div class="dropzone" id="dropzone">
@@ -38,9 +37,11 @@
         </div>
       </div>
     </div>
-    <!-- 우측: 내용 (서식 편집기) -->
+    <!-- 우측: 제목 + 내용 (서식 편집기) -->
     <div class="col-right">
-      <label>내용</label>
+      <label>제목</label>
+      <input type="text" name="subject" class="subj-input" value="{{ form.get('subject','') }}" placeholder="제목을 입력하세요" required>
+      <label style="margin-top:14px">내용</label>
       <div class="rte">
         <div class="rte-tb">
           <button type="button" data-cmd="bold" title="굵게"><b>B</b></button>
