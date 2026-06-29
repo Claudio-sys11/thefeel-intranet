@@ -124,6 +124,21 @@ td.dt .dt-time{font-size:10.5px;color:#94a3b8}
 .form-card .fc-ic{font-size:26px}
 .form-card b{font-size:15px}
 .form-card small{color:var(--muted);font-size:12px}
+/* 메일 수신자 입력(이름 검색 + 칩) */
+.recip-field{position:relative;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff;min-height:44px}
+.recip-field .chip{display:inline-flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;
+  border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600}
+.recip-field .chip small{font-weight:500;opacity:.8}
+.recip-field .chip.ext{background:#e0f2fe;color:#075985}
+.recip-field .chip .x{cursor:pointer;font-weight:800;opacity:.6}
+.recip-field .chip .x:hover{opacity:1}
+.recip-input{border:0;outline:none;flex:1;min-width:160px;font-size:14px;padding:5px;background:transparent}
+.suggest{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--line);
+  border-radius:10px;margin-top:4px;max-height:230px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.12);display:none}
+.suggest .opt{padding:9px 12px;cursor:pointer;font-size:13px}
+.suggest .opt:hover{background:var(--bg)}
+.suggest .opt small{color:var(--muted)}
 /* 메일 첨부파일 */
 .attach-box{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:0 0 14px}
 .attach-box ul{margin:8px 0 0;padding-left:18px}

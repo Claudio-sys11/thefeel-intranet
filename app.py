@@ -1030,7 +1030,7 @@ def parse_emails(s):
     return [p.strip() for p in re.split(r"[,;\s]+", s or "") if p.strip() and "@" in p]
 
 
-def send_external_mail(to_addrs, cc_addrs, subject, body, attach_paths):
+def send_external_mail(to_addrs, cc_addrs, bcc_addrs, subject, body, attach_paths):
     """SMTP로 외부 발송. (성공여부, 오류메시지) 반환."""
     cfg = smtp_config()
     if not cfg["host"] or not cfg["user"]:
@@ -1039,7 +1039,7 @@ def send_external_mail(to_addrs, cc_addrs, subject, body, attach_paths):
     msg["From"] = f'{cfg["from_name"]} <{cfg["user"]}>' if cfg["from_name"] else cfg["user"]
     msg["To"] = ", ".join(to_addrs)
     if cc_addrs:
-        msg["Cc"] = ", ".join(cc_addrs)
+        msg["Cc"] = ", ".join(cc_addrs)            # 숨은참조(bcc)는 헤더에 넣지 않음
     msg["Subject"] = subject
     msg.set_content(body or "")
     for path, fname in attach_paths:
@@ -1058,7 +1058,7 @@ def send_external_mail(to_addrs, cc_addrs, subject, body, attach_paths):
             if cfg["security"] == "tls":
                 srv.starttls()
         srv.login(cfg["user"], cfg["password"])
-        srv.send_message(msg, to_addrs=list(to_addrs) + list(cc_addrs))
+        srv.send_message(msg, to_addrs=list(to_addrs) + list(cc_addrs) + list(bcc_addrs))
         srv.quit()
         return (True, "")
     except Exception as e:
@@ -1079,7 +1079,7 @@ def admin_smtp():
         db.commit()
         if action == "test":
             cfg = smtp_config()
-            ok, err = send_external_mail([cfg["user"]], [], "[The Feel Intranet] SMTP 테스트",
+            ok, err = send_external_mail([cfg["user"]], [], [], "[The Feel Intranet] SMTP 테스트",
                                          "외부 메일 발송 설정이 정상 동작합니다.", [])
             flash("테스트 메일을 보냈습니다. 받은 편지함을 확인하세요." if ok else f"테스트 실패: {err}",
                   "ok" if ok else "error")
@@ -1123,8 +1123,9 @@ def mail_compose():
         to = [r for r in request.form.getlist("to") if r]
         cc = [r for r in request.form.getlist("cc") if r]
         bcc = [r for r in request.form.getlist("bcc") if r]
-        ext_to = parse_emails(request.form.get("ext_to", ""))    # 외부 수신 이메일
-        ext_cc = parse_emails(request.form.get("ext_cc", ""))    # 외부 참조 이메일
+        ext_to = parse_emails(", ".join(request.form.getlist("ext_to")))   # 외부 수신 이메일(여러 개)
+        ext_cc = parse_emails(", ".join(request.form.getlist("ext_cc")))   # 외부 참조
+        ext_bcc = parse_emails(", ".join(request.form.getlist("ext_bcc"))) # 외부 숨은참조
         if not subject or (not to and not ext_to):
             flash("제목과 받는 사람(사내 수신 또는 외부 이메일)을 입력하세요.", "error")
             return render_template("mail/compose.html", users=users, form=request.form,
@@ -1158,10 +1159,10 @@ def mail_compose():
                 pass
         db.commit()
         # 외부 발송(SMTP)
-        if ext_to or ext_cc:
+        if ext_to or ext_cc or ext_bcc:
             paths = [(os.path.join(ATTACH_DIR, a["stored_name"]), a["filename"])
                      for a in db.execute("SELECT * FROM message_attachments WHERE message_id=?", (mid,)).fetchall()]
-            ok, err = send_external_mail(ext_to, ext_cc, subject, body, paths)
+            ok, err = send_external_mail(ext_to, ext_cc, ext_bcc, subject, body, paths)
             if ok:
                 flash("메일을 보냈습니다. (외부 발송 포함)", "ok")
             else:

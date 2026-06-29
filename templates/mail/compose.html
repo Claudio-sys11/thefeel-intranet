@@ -7,40 +7,81 @@
 </div>
 <form method="post" class="form" enctype="multipart/form-data">
   <div class="row">
-    <label>발신자</label>
+    <label>발신</label>
     <input type="text" value="{{ current_user['name'] }}{% if current_user['dept'] %} · {{ current_user['dept'] }}{% endif %}{% if current_user['position'] %} {{ current_user['position'] }}{% endif %} (본인)" disabled>
   </div>
   <div class="row">
-    <label>수신 <small>(필수 · 여러 명 선택 Ctrl/Shift)</small></label>
-    <select name="to" multiple size="5">
-      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
-    </select>
+    <label>수신 <small>(필수 · 이름 검색 또는 이메일 입력 후 Enter)</small></label>
+    <div class="recip-field" id="rf-to"><input type="text" class="recip-input" placeholder="이름 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-to"></div></div>
   </div>
   <div class="row">
     <label>참조 (CC) <small>(선택)</small></label>
-    <select name="cc" multiple size="4">
-      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
-    </select>
+    <div class="recip-field" id="rf-cc"><input type="text" class="recip-input" placeholder="이름 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-cc"></div></div>
   </div>
   <div class="row">
     <label>숨은참조 (BCC) <small>(선택 · 다른 수신자에게 보이지 않음)</small></label>
-    <select name="bcc" multiple size="4">
-      {% for u in users %}<option value="{{ u['id'] }}">{{ u['name'] }} · {{ u['dept'] or '-' }} {{ u['position'] or '' }}</option>{% endfor %}
-    </select>
+    <div class="recip-field" id="rf-bcc"><input type="text" class="recip-input" placeholder="이름 또는 이메일 입력" autocomplete="off"><div class="suggest" id="sg-bcc"></div></div>
   </div>
-  <div class="row two">
-    <div><label>외부 수신 (이메일) <small>(쉼표로 구분)</small></label>
-      <input type="text" name="ext_to" value="{{ form.get('ext_to','') }}" placeholder="예: abc@gmail.com, def@company.com"></div>
-    <div><label>외부 참조 (이메일) <small>(선택)</small></label>
-      <input type="text" name="ext_cc" value="{{ form.get('ext_cc','') }}" placeholder="예: cc@company.com"></div>
-  </div>
-  {% if not smtp_on %}<p class="hint" style="text-align:left;color:#b45309">※ 외부 발송은 관리자가 <b>외부 메일 설정(SMTP)</b>을 등록해야 작동합니다. 사내 수신은 그대로 가능합니다.</p>{% endif %}
   <div class="row"><label>제목</label><input type="text" name="subject" value="{{ form.get('subject','') }}" required></div>
   <div class="row"><label>파일 첨부 <small>(여러 개 가능)</small></label><input type="file" name="attachments" multiple></div>
   <div class="row"><label>내용</label><textarea name="body" rows="11">{{ form.get('body','') }}</textarea></div>
+  {% if not smtp_on %}<p class="hint" style="text-align:left;color:#b45309">※ 외부(이메일) 발송은 관리자가 <b>외부 메일 설정(SMTP)</b>을 등록해야 작동합니다. 사내 직원에게는 그대로 전송됩니다.</p>{% endif %}
   <div class="actions">
     <button class="btn primary">보내기</button>
     <a href="{{ url_for('mail_inbox') }}" class="btn">취소</a>
   </div>
 </form>
+
+<script>
+var USERS = [{% for u in users %}{id:{{ u['id'] }},name:"{{ u['name']|e }}",dept:"{{ (u['dept'] or '')|e }}",pos:"{{ (u['position'] or '')|e }}"}{{ ',' if not loop.last }}{% endfor %}];
+function initRecip(field){
+  var wrap=document.getElementById('rf-'+field);
+  var input=wrap.querySelector('.recip-input');
+  var sug=document.getElementById('sg-'+field);
+  var chosen={};
+  function chip(label,inputName,val,cls,key){
+    if(chosen[key])return; chosen[key]=1;
+    var c=document.createElement('span'); c.className='chip'+(cls?' '+cls:'');
+    var x=document.createElement('span'); x.className='x'; x.textContent='✕';
+    x.onclick=function(){c.remove();delete chosen[key];};
+    var h=document.createElement('input'); h.type='hidden'; h.name=inputName; h.value=val;
+    var t=document.createElement('span'); t.innerHTML=label;
+    c.appendChild(t); c.appendChild(h); c.appendChild(x);
+    wrap.insertBefore(c,input);
+  }
+  function addUser(u){ chip(u.name+' <small>'+(u.dept||'')+'</small>', field, u.id, '', 'u'+u.id); }
+  function addEmail(e){ chip(e, 'ext_'+field, e, 'ext', 'e'+e.toLowerCase()); }
+  function close(){ sug.style.display='none'; sug.innerHTML=''; }
+  function show(q){
+    sug.innerHTML=''; var ql=q.toLowerCase();
+    if(!ql){close();return;}
+    var m=USERS.filter(function(u){return u.name.toLowerCase().indexOf(ql)>=0||(u.dept||'').toLowerCase().indexOf(ql)>=0;}).slice(0,8);
+    if(!m.length){close();return;}
+    m.forEach(function(u){
+      var o=document.createElement('div'); o.className='opt';
+      o.innerHTML='<b>'+u.name+'</b> <small>'+(u.dept||'')+' '+(u.pos||'')+'</small>';
+      o.onmousedown=function(ev){ev.preventDefault();addUser(u);input.value='';close();};
+      sug.appendChild(o);
+    });
+    sug.style.display='block';
+  }
+  input.addEventListener('input',function(){show(input.value.trim());});
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===','){
+      e.preventDefault();
+      var v=input.value.trim().replace(/,$/,'').trim(); if(!v)return;
+      if(v.indexOf('@')>=0){ addEmail(v); input.value=''; close(); return; }
+      var ql=v.toLowerCase();
+      var ex=USERS.filter(function(u){return u.name.toLowerCase()===ql;});
+      var pa=USERS.filter(function(u){return u.name.toLowerCase().indexOf(ql)>=0;});
+      if(ex.length){addUser(ex[0]);} else if(pa.length===1){addUser(pa[0]);}
+      input.value=''; close();
+    } else if(e.key==='Backspace' && !input.value){
+      var chips=wrap.querySelectorAll('.chip'); if(chips.length){chips[chips.length-1].querySelector('.x').click();}
+    }
+  });
+  input.addEventListener('blur',function(){setTimeout(close,150);});
+}
+['to','cc','bcc'].forEach(initRecip);
+</script>
 {% endblock %}
