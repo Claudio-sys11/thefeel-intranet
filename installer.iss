@@ -33,13 +33,15 @@ RestartApplications=no
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 
-; 구버전(한글 제품명) 바로가기/그룹 잔재 정리
+; 구버전(한글 제품명) 바로가기/그룹 잔재 정리 + 이전 onedir 자원 정리
 [InstallDelete]
 Type: files;          Name: "{autodesktop}\더필코리아 인트라넷.lnk"
 Type: filesandordirs; Name: "{autoprograms}\더필코리아 인트라넷"
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
-Source: "dist\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
+; onedir 빌드: 실행파일 + _internal(템플릿/정적/런타임)을 통째로 설치 → 자원이 항상 폴더에 존재
+Source: "dist\ThefeelIntranet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; 바탕화면 바로가기

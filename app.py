@@ -1682,14 +1682,35 @@ def update_apply():
     return jsonify({"ok": True})
 
 
+def _error_page(code, msg):
+    """오류 페이지 — 템플릿/정적 자원에 의존하지 않는 인라인 HTML.
+    (error.html 이나 static 이 일시적으로 없어도 절대 500으로 번지지 않게)"""
+    html = (
+        "<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'>"
+        "<title>%d</title><style>body{margin:0;height:100vh;display:flex;align-items:center;"
+        "justify-content:center;font-family:'Malgun Gothic',sans-serif;"
+        "background:linear-gradient(135deg,#2a0a5e,#5b21b6);color:#fff}"
+        ".b{text-align:center}.b h1{font-size:64px;margin:0}.b p{opacity:.85}"
+        ".b a{color:#fff;font-weight:700}</style></head><body><div class='b'>"
+        "<h1>%d</h1><p>%s</p><p><a href='/login'>← 로그인으로</a></p></div></body></html>"
+        % (code, code, msg)
+    )
+    return html, code
+
+
 @app.errorhandler(403)
 def e403(e):
-    return render_template("error.html", code=403, msg="접근 권한이 없습니다."), 403
+    return _error_page(403, "접근 권한이 없습니다.")
 
 
 @app.errorhandler(404)
 def e404(e):
-    return render_template("error.html", code=404, msg="페이지를 찾을 수 없습니다."), 404
+    return _error_page(404, "페이지를 찾을 수 없습니다.")
+
+
+@app.errorhandler(500)
+def e500(e):
+    return _error_page(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도하세요.")
 
 
 def main():
